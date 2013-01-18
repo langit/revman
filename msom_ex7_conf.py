@@ -1,0 +1,32 @@
+from noshow import *
+config.LBH=True
+config.BINO=True
+config.svl =0.001
+config.confid =0.05
+#mymeth = ('OBSA/CR','EMSR/CR','EMSR/NV','CRSA/NV','DP/LBH','EMSR/S1')
+mymeth = ('OBSA/CR','EMSR/CR','EMSR/NV', 'CRSA/NV', 'DP/LBH', 'EMSR/SL','EMSR/NO')
+
+vin = 5.0
+sina = BinoScena()
+sina.C = 100.0
+sina.m = 2
+sina.beta = 0.2
+sina.p = (0.1,0.3)
+sina.f = (100.,40.)
+sina.V = 500.0
+
+sina.U = (75.,85.)
+sina.L = (45.,55.)
+print "Load Factoer: ", sina.demandFactor(), sina.V
+#sina.ddr = 1.1 #real demand rate 100%
+#sina.pdr = 1.1 #real noshow rate 90%
+
+sinb = copy(sina)
+sinb.p = (0.2, 0.2)
+print "Load Factoer: ", sinb.demandFactor()
+sinb.nid = 0.0
+sina.nid = 0.199999999
+
+print sina.p
+print sina.makeProblem().p
+
