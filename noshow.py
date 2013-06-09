@@ -807,6 +807,7 @@ class noshowConfig:
         #for reporting
         me.buckets = True
         me.basemult = 0 #pure CR
+        me.percentile = 5 #5th and 95th percentiles
 
     def cfgCE(me):
         return me.samples, me.elites, me.smoother
@@ -1355,6 +1356,8 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
     #init min and max rev.
     los = [None for pon in pls]
     his = [None for pon in pls]
+    vlos = [None for pon in pls]
+    vhis = [None for pon in pls]
     seq = src.nextSeq(config.LBH, COR)
     nop = src.nextRate(ptype) 
     if config.BINO: binoSeq(seq, nop)
@@ -1374,6 +1377,50 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
             if obsv[0] < los[k]: los[k] = obsv[0]
             if obsv[0] > his[k]: his[k] = obsv[0]
 
+    def mustd(data, stdmu=False): #mu and std
+        no = float(len(data))
+        mu = sum(data)/no
+        sg = sum(d*d for d in data)/no
+        std = sqrt((sg-mu*mu)/(no if stdmu else 1.0))
+        return mu, std
+
+    if config.percentile: #find percentiles
+        ipercent = reps*config.percentile/100
+        def jackknife(revs, percentile):
+            idx, rho = reps*percentile/100+1, percentile/100.
+            delta = revs[idx+1] - revs[idx]
+            return delta*sqrt((1-rho)*rho*(reps-1))
+        def bootstrap(revs, percentile, itsN):
+            idx = reps * percentile/100 + 1
+            qlo = [0 for i in range(itsN)]
+            qhi = [0 for i in range(itsN)]
+            for i in range(itsN): #resample with replacement
+                resam = [revs[randint(0,reps-1)] for d in revs]
+                resam.sort()
+                qlo[i], qhi[i] = resam[idx], resam[reps-idx]
+            return mustd(qlo), mustd(qhi)
+
+        for k in range(len(pls)):
+            revenues = sorted(r[0] for r in ras[k])
+            vlos[k], vhis[k] = bootstrap(
+				revenues, config.percentile, 1000)
+            idx = reps * config.percentile/100 + 1
+            los[k] = revenues[idx]
+            his[k] = revenues[reps-idx]
+            print custom[k], "%.0f"%los[k], "[%.0f,%.1f]"%vlos[k], 
+            print "%.0f"%his[k], "[%.0f,%.1f]"%vhis[k]
+    #find variance for each method 
+    for k in range(len(pls)):
+        mu, std = mustd([r[0] for r in ras[k]], True)
+        print custom[k], '%.3f, %.3f'%(mu, std)
+    #compare k, k+t, use Common Random Number
+    for k in range(len(pls)):
+        print custom[k],
+        for j in range(len(pls)):
+            mu, std = mustd([rk[0]-rj[0] 
+               for rk,rj in zip(ras[k],ras[j])], True)
+            print '& %.3f '%(mu/std), 
+        print '\\\\'
     #save the scenario details
     if fscen: pickle.dump(ras, fscen)
 
@@ -1597,7 +1644,9 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         plot(vvv, miner[i], style[i], label=custom[i])
     legend(loc=legloc[2], numpoints = 2, markerscale = 0.9)
     xlabel(xlab)
-    ylabel('Minimal Observed Revenue')
+    if config.percentile: ylabel(
+			'Observed %ith percentile of revenue'%config.percentile)
+    else: ylabel('Minimal Observed Revenue')
     #title('Average Bumpings per 10,000')
     if DISP!=None: 
         savefig(DISP+'4.eps')
@@ -1608,7 +1657,10 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         plot(vvv, maxer[i], style[i], label=custom[i])
     legend(loc=legloc[2], numpoints = 2, markerscale = 0.9)
     xlabel(xlab)
-    ylabel('Maximal Observed Revenue')
+    if config.percentile: ylabel(
+			'Observed %ith percentile of revenue'%
+			(100-config.percentile))
+    else: ylabel('Maximal Observed Revenue')
     #title('Average Bumpings per 10,000')
     if DISP!=None: 
         savefig(DISP+'5.eps')
