@@ -1377,11 +1377,11 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
             if obsv[0] < los[k]: los[k] = obsv[0]
             if obsv[0] > his[k]: his[k] = obsv[0]
 
-    def mustd(data, stdmu=False): #mu and std
+    def mustd(data, std4mu=False): #mu and std
         no = float(len(data))
         mu = sum(data)/no
         sg = sum(d*d for d in data)/no
-        std = sqrt((sg-mu*mu)/(no if stdmu else 1.0))
+        std = sqrt((sg-mu*mu)/(no if std4mu else 1.0))
         return mu, std
 
     if config.percentile: #find percentiles
@@ -1403,23 +1403,28 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
         for k in range(len(pls)):
             revenues = sorted(r[0] for r in ras[k])
             vlos[k], vhis[k] = bootstrap(
-				revenues, config.percentile, 1000)
+				revenues, config.percentile, 500)
             idx = reps * config.percentile/100 + 1
             los[k] = revenues[idx]
             his[k] = revenues[reps-idx]
-            print custom[k], "%.0f"%los[k], "[%.0f,%.1f]"%vlos[k], 
-            print "%.0f"%his[k], "[%.0f,%.1f]"%vhis[k]
     #find variance for each method 
+	print "Table: statistics for revenues"
+	print "=============================="
+	print "Meth.|E[R]|Std.|5\%|std|95%|std" 
     for k in range(len(pls)):
         mu, std = mustd([r[0] for r in ras[k]], True)
-        print custom[k], '%.3f, %.3f'%(mu, std)
+        print custom[k], '&%.0f &%.0f'%(mu, 2*std),
+        if config.percentile: #print percentiles
+            print "&%.0f"%los[k], "&%.0f"%(2*vlos[k][1]), 
+            print "&%.0f"%his[k], "&%.0f"%(2*vhis[k][1]),
+        print '\\\\'
     #compare k, k+t, use Common Random Number
     for k in range(len(pls)):
         print custom[k],
         for j in range(len(pls)):
             mu, std = mustd([rk[0]-rj[0] 
                for rk,rj in zip(ras[k],ras[j])], True)
-            print '& %.3f '%(mu/std), 
+            print '&%.2f '%(mu/std), 
         print '\\\\'
     #save the scenario details
     if fscen: pickle.dump(ras, fscen)
