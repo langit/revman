@@ -12,9 +12,11 @@ nosh.config.LBH=True
 nosh.config.BINO=True
 nosh.config.svl =0.001
 
-nosh.config.samples = 2900
-nosh.config.elites  = 200 
+nosh.config.samples = 1000 #2900
+nosh.config.elites  = 100 #200 
 nosh.config.smoother = 0.7
+
+nosh.config.percentile = 0
 
 #nosh.config.basemult = 4
 
@@ -29,7 +31,7 @@ def scenas(scen, ps):
 		newscen = copy(scen)
 		newscen.L = tuple(u-u*p for u in mus)
 		newscen.U = tuple(u+u*p for u in mus)
-		newscen.nid = p/3**.5
+		newscen.nid = p #/3**.5
 		print "## Scenario with CV:", newscen.nid
 		#print "Upper bound:", newscen.U
 		yield newscen
@@ -38,9 +40,11 @@ from ORinstance3 import sina
 
 pickle = 'cov3.pkl'
 gld = [s for s in scenas(sina, ((1., .8, .6, .4, .2, .0)))]
-nosh.enuSim(gld, 10000, pickle, mymeth)
+#nosh.enuSim(gld, 1000, pickle, mymeth)
 DISP = 'ORcov3'
 xlab = 'coefficient of variation'
-nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))
+nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle), 
+		conf={'mean':[[uniform(500,900) for s in gld] 
+				for m in mymeth]})
 nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
 if DISP is None: pylab.show()

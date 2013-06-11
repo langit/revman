@@ -826,8 +826,8 @@ config = noshowConfig()
 #NOTE: CRE/OSA  >>> HCR/OSA :Hybrid CR / Overbooking & Seat Alloc
 meth = ['DP/LBH', 'EMSR/CR', 'OBSA/CR', 'EMSR/NV', 'EMSR/SL',
                  'HCR/OSA', 'HAR/OSA', 'EMSR/HCR', 'EMSR/HAR']
-style = ['mp--','cD-.','ro--','gs-','cv-.','b^-', 'k+:', 
-                   'yx-', 'g+-']
+#style = ['mp--','cD-.','ro--','gs-','cv-.','b^-', 'k+:', 'yx-', 'g+-']
+style = ['mp--','cD-.','rs--','go-','c*-.','bh-', 'kx:', 'y+-', 'g.-']
 #COR: Covariance
 COR=False
 
@@ -1168,7 +1168,8 @@ def scenaQuant(scen, custom, DISP=None, bRATIO=False, reps=50, qnts=100):
              'text.fontsize': 10,
              'legend.fontsize': 10,
              'xtick.labelsize': 8,
-             'ytick.labelsize': 8}
+             'ytick.labelsize': 8,
+			 'lines.markersize':4}
     rcParams.update(params)
 
     figure(figsize=(6,4))
@@ -1384,29 +1385,31 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
         std = sqrt((sg-mu*mu)/(no if std4mu else 1.0))
         return mu, std
 
+    def bootstrap(revs, statis, itsN):
+        stt = [0 for i in range(itsN)]
+        for i in range(itsN): #resample with replacement
+            resam = [revs[randint(0,reps-1)] for d in revs]
+            resam.sort()
+            stt[i] = statis(resam)
+        if type(stt[0]) in (int, float): return mustd(stt)
+        return tuple(mustd(data) for data in zip(*stt))
+
     if config.percentile: #find percentiles
         ipercent = reps*config.percentile/100
-        def jackknife(revs, percentile):
+        def jackknife_percentile(revs, percentile):
             idx, rho = reps*percentile/100+1, percentile/100.
             delta = revs[idx+1] - revs[idx]
             return delta*sqrt((1-rho)*rho*(reps-1))
-        def bootstrap(revs, percentile, itsN):
-            idx = reps * percentile/100 + 1
-            qlo = [0 for i in range(itsN)]
-            qhi = [0 for i in range(itsN)]
-            for i in range(itsN): #resample with replacement
-                resam = [revs[randint(0,reps-1)] for d in revs]
-                resam.sort()
-                qlo[i], qhi[i] = resam[idx], resam[reps-idx]
-            return mustd(qlo), mustd(qhi)
+
+        def lohi_percentiles(revs):
+            return revs[ipercent], revs[reps-ipercent]
 
         for k in range(len(pls)):
             revenues = sorted(r[0] for r in ras[k])
             vlos[k], vhis[k] = bootstrap(
-				revenues, config.percentile, 500)
-            idx = reps * config.percentile/100 + 1
-            los[k] = revenues[idx]
-            his[k] = revenues[reps-idx]
+				revenues, lohi_percentiles, 500)
+            los[k], his[k] = lohi_percentiles(revenues)
+
     #find variance for each method 
 	print "Table: statistics for revenues"
 	print "=============================="
@@ -1424,7 +1427,7 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
         for j in range(len(pls)):
             mu, std = mustd([rk[0]-rj[0] 
                for rk,rj in zip(ras[k],ras[j])], True)
-            print '&%.2f '%(mu/std), 
+            print '&%.2f'%(mu/std), 
         print '\\\\'
     #save the scenario details
     if fscen: pickle.dump(ras, fscen)
@@ -1598,26 +1601,50 @@ def drawPolicies(DISP, xlab, custom, vvv, polis):
         else: 
            ylabel("nested bucket for fare class-%i"%(j+1))
 
+from matplotlib.patches import Ellipse
+def drawCI(fig, vvv, data, conf, style):
+   '''draw confidence intervals as circles on plot'''
+   w,h = fig.get_size_inches()
+   ax = fig.gca()
+   aspect = h/(w*ax.get_data_ratio())
+   #print w, h, "and", aspect
+   xconf = [ci*aspect for ci in conf]
+   ells=[Ellipse(xy=(x, y), width=w, height=h)
+       for x, y, w, h in zip(vvv, data, xconf, conf)]
+   for ell in ells:
+      ell.set_facecolor('none')
+      ell.set_alpha(0.5)
+      ell.set_edgecolor(style[0])
+      ell.set_linewidth(0.5)
+      ax.add_artist(ell)
+
 def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
-				miner, maxer, arsmt, crsmt, legloc=(0,0,0)):
+		miner, maxer, arsmt, crsmt, legloc=(0,0,0), conf={}):
     params = {'axes.labelsize': 10,
              'text.fontsize': 10,
              'legend.fontsize': 10,
              'xtick.labelsize': 8,
-             'ytick.labelsize': 8}
+             'ytick.labelsize': 8,
+			 'lines.markersize':4}
     rcParams.update(params)
     nm = len(custom)
-    figure(figsize=(6,4))
+    fig = figure(figsize=(6,4))
     for i in range(nm):
         plot(vvv, relat[i], style[i], label=custom[i])
+
+	# draw confidence intervals as circles here
+    cir = conf.get("mean", None)
+    for i in range(nm):
+        if cir: drawCI(fig, vvv, relat[i], cir[i], style[i])
     #for i in range(nm):
     #    plot(vvv, miner[i], style[i])
     #    plot(vvv, maxer[i], style[i])
-    legend(loc=legloc[0], numpoints = 2, markerscale = 0.9)
+    legend(loc=legloc[0], numpoints = 1, markerscale = 0.8)
     xlabel(xlab)
     if bAbsolute: ylabel('Average net revenues')
     else: ylabel('Relative Performance to EMSR/CR (%)')
     #title('Relative Performance to EMSR/CR')
+
     if DISP!=None: 
         savefig(DISP+'1.eps')
         print "File saved: %s1.eps"%DISP
