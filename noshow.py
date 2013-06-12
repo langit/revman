@@ -827,7 +827,7 @@ config = noshowConfig()
 meth = ['DP/LBH', 'EMSR/CR', 'OBSA/CR', 'EMSR/NV', 'EMSR/SL',
                  'HCR/OSA', 'HAR/OSA', 'EMSR/HCR', 'EMSR/HAR']
 #style = ['mp--','cD-.','ro--','gs-','cv-.','b^-', 'k+:', 'yx-', 'g+-']
-style = ['mp--','cD-.','rs--','go-','c*-.','bh-', 'kx:', 'y+-', 'g.-']
+style = ['mD--','cs-.','rp--','gH-','c*-.','bx-', 'k+:', 'y.-', 'g,-']
 #COR: Covariance
 COR=False
 
@@ -1169,15 +1169,16 @@ def scenaQuant(scen, custom, DISP=None, bRATIO=False, reps=50, qnts=100):
              'legend.fontsize': 10,
              'xtick.labelsize': 8,
              'ytick.labelsize': 8,
-			 'lines.markersize':4}
+			 'lines.markeredgewidth':0.2,
+			 'lines.markersize':2}
     rcParams.update(params)
 
-    figure(figsize=(6,4))
+    fig = figure(figsize=(6,4))
     vvv = [ t+1 for t in rav ]
     for k in range(len(pls)):
         if bRATIO and k == offid: continue
         plot(vvv, qav[k], style[k], label=custom[k])
-    legend(loc=0, numpoints = 2, markerscale = 0.9)
+    legend(loc=0, numpoints = 2)#, markerscale = 0.9)
     xlabel('Percentile')
     if bAbsolute: ylabel('Average net revenues')
     else: ylabel('Relative Performance to Off/Opt (%)')
@@ -1189,7 +1190,8 @@ def avgRevSvcCI(scen, custom, reps=40, qnts=5000):
     rev = [[0.0 for j in range(reps)] for k in range(len(custom))]
     svc = [[0.0 for j in range(reps)] for k in range(len(custom))]
     for j in range(reps):
-      resu,lvl,los,his,ars,crs = scenaSim(scen, qnts, custom, False)
+      resu,lvl,los,his,ars,crs,stds = \
+			scenaSim(scen, qnts, custom, False)
       for k in range(len(custom)):
         rev[k][j] = resu[k][0]
         svc[k][j] = resu[k][2]
@@ -1354,11 +1356,15 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
     pls = [dirm[pon] for pon in custom]
     ars = [ars[pon] for pon in custom]
     crs = [crs[pon] for pon in custom]
-    #init min and max rev.
+    key = [None for pon in pls] #key performance
+    lvl = [None for p in pls]
     los = [None for pon in pls]
     his = [None for pon in pls]
+    vrev = [None for pon in pls]
+    vstd = [None for pon in pls] 
     vlos = [None for pon in pls]
     vhis = [None for pon in pls]
+
     seq = src.nextSeq(config.LBH, COR)
     nop = src.nextRate(ptype) 
     if config.BINO: binoSeq(seq, nop)
@@ -1404,19 +1410,23 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
         def lohi_percentiles(revs):
             return revs[ipercent], revs[reps-ipercent]
 
+        def lohistd_boot(revs):
+            return revs[ipercent], revs[reps-ipercent],\
+							mustd(revs, True)[1]
+
         for k in range(len(pls)):
             revenues = sorted(r[0] for r in ras[k])
-            vlos[k], vhis[k] = bootstrap(
-				revenues, lohi_percentiles, 500)
+            vlos[k], vhis[k], vstd[k] = bootstrap(
+				revenues, lohistd_boot, 500)
             los[k], his[k] = lohi_percentiles(revenues)
+            vrev[k] = mustd(revenues, True)
 
     #find variance for each method 
 	print "Table: statistics for revenues"
 	print "=============================="
 	print "Meth.|E[R]|Std.|5\%|std|95%|std" 
     for k in range(len(pls)):
-        mu, std = mustd([r[0] for r in ras[k]], True)
-        print custom[k], '&%.0f &%.0f'%(mu, 2*std),
+        print custom[k], '&%.0f &%.0f'%(vrev[k][0], 2*vrev[k][1]),
         if config.percentile: #print percentiles
             print "&%.0f"%los[k], "&%.0f"%(2*vlos[k][1]), 
             print "&%.0f"%his[k], "&%.0f"%(2*vhis[k][1]),
@@ -1433,19 +1443,18 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
     if fscen: pickle.dump(ras, fscen)
 
     bench = pls[0].res[0]/reps/100.0 #for percentage
-    lvl = [None for p in pls]
     for k in range(len(pls)):
-        pbed = pls[k]
-        pls[k] = pbed.average(reps)
-        lvl[k] = pbed.levels()
+        key[k] = pls[k].average(reps)
+        lvl[k] = pls[k].levels()
         #addjustments
-        if not bAbsolute: pls[k][0]/= bench
-        pls[k][1] *= 100.0/scen.C 
+        if not bAbsolute: key[k][0]/= bench
+        key[k][1] *= 100.0/scen.C 
         #scen.C - avg(empty seats) + avg(denials)=avg(eff bookings)
-        pls[k][2] *= 10000.0/(scen.C-pls[k][1]+pls[k][2])
-        if verbo: print custom[k], pls[k]
+        key[k][2] *= 10000.0/(scen.C-key[k][1]+key[k][2])
+        if verbo: print custom[k], key[k]
         if verbo: print custom[k], lvl[k]
-    return pls,lvl,los,his,ars,crs
+	stds = {'vrev':vrev, 'vstd':vstd, 'vlos':vlos, 'vhis':vhis}
+    return key,lvl,los,his,ars,crs,stds
 
 def barChart(data, label):
     locats = [i for i in range(1, len(data)+1)]
@@ -1511,7 +1520,7 @@ def policyFile(DISP):
 
 def modiSim(gld, reps, custom):
     '''modify the scen and simulate'''
-    resu, lvl,los,his ,ars,crs= \
+    resu, lvl,los,his ,ars,crs, stds= \
 		scenaSim(sinf, reps, custom)
 
 def enuSim(gld, reps, DISP, custom=meth):
@@ -1524,6 +1533,10 @@ def enuSim(gld, reps, DISP, custom=meth):
     polis = [[] for i in range(nm)]
     crsmt = [[] for i in range(nm)]
     arsmt = [[] for i in range(nm)]
+    vrev =  [[] for i in range(nm)]
+    vstd =  [[] for i in range(nm)]
+    vlos =  [[] for i in range(nm)]
+    vhis =  [[] for i in range(nm)]
     vvv = [sinf.nid for sinf in gld]
 
     scenout = None
@@ -1533,7 +1546,7 @@ def enuSim(gld, reps, DISP, custom=meth):
 
     for k, sinf in enumerate(gld):
         print k, "Demand factor:", sinf.demandFactor()
-        resu,lvl,los,his,ars,crs = \
+        resu,lvl,los,his,ars,crs, stds = \
 			scenaSim(sinf, reps, custom, fscen = scenout)
         for i in range(nm):
             relat[i].append(resu[i][0])
@@ -1544,6 +1557,11 @@ def enuSim(gld, reps, DISP, custom=meth):
             arsmt[i].append(ars[i])
             crsmt[i].append(crs[i])
             polis[i].append(lvl[i])
+            vrev[i].append(stds['vrev'][i])
+            vstd[i].append(stds['vstd'][i])
+            vlos[i].append(stds['vlos'][i])
+            vhis[i].append(stds['vhis'][i])
+    stds = {'vrev':vrev,'vstd':vstd,'vlos':vlos,'vhis':vhis}
 
     if scenout: 
         scenout.close()
@@ -1560,6 +1578,7 @@ def enuSim(gld, reps, DISP, custom=meth):
     pickle.dump(maxer, output)
     pickle.dump(arsmt, output)
     pickle.dump(crsmt, output)
+    pickle.dump(stds, output)
     output.close()
     print "Result saved to file:", DISP
     polfile = policyFile(DISP)
@@ -1578,7 +1597,7 @@ def drawPolicies(DISP, xlab, custom, vvv, polis):
     for i in range(nmeth):
         #transpose polis[i]
         transp.append( zip( *polis[i] ) )
-    figure(figsize=(6,4))
+    fig = figure(figsize=(6,4))
     for i in range(nmeth):
         plot(vvv, transp[i][0], style[i], label=custom[i])
         for j in range(1, nlevel):
@@ -1591,7 +1610,7 @@ def drawPolicies(DISP, xlab, custom, vvv, polis):
         ylabel("nested buckets for fare classes")
 
     for j in range(nlevel):
-        figure(figsize=(6,4))
+        fig = figure(figsize=(6,4))
         for i in range(nmeth):
             plot(vvv, transp[i][j], style[i], label=custom[i])
         legend(numpoints = 2, markerscale = 0.9, loc=0)
@@ -1602,30 +1621,33 @@ def drawPolicies(DISP, xlab, custom, vvv, polis):
            ylabel("nested bucket for fare class-%i"%(j+1))
 
 from matplotlib.patches import Ellipse
-def drawCI(fig, vvv, data, conf, style):
+def drawCI(fig, vvv, data, style, Z=1.96):
    '''draw confidence intervals as circles on plot'''
    w,h = fig.get_size_inches()
    ax = fig.gca()
    aspect = h/(w*ax.get_data_ratio())
-   #print w, h, "and", aspect
-   xconf = [ci*aspect for ci in conf]
-   ells=[Ellipse(xy=(x, y), width=w, height=h)
-       for x, y, w, h in zip(vvv, data, xconf, conf)]
+   print w, h, aspect, data
+   ells=[Ellipse(xy=(x, y), 
+             width=std*Z*aspect, height=std*Z)
+       for x, (y, std) in zip(vvv, data)]
    for ell in ells:
       ell.set_facecolor('none')
       ell.set_alpha(0.5)
       ell.set_edgecolor(style[0])
-      ell.set_linewidth(0.5)
+      ell.set_linewidth(0.4)
+      #ell.set_linestyle('dashed')
       ax.add_artist(ell)
 
 def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
-		miner, maxer, arsmt, crsmt, legloc=(0,0,0), conf={}):
+		miner, maxer, arsmt, crsmt, conf={}, legloc=(0,0,0)):
     params = {'axes.labelsize': 10,
              'text.fontsize': 10,
              'legend.fontsize': 10,
              'xtick.labelsize': 8,
              'ytick.labelsize': 8,
-			 'lines.markersize':4}
+			 'lines.linewidth': 0.4,
+			 'lines.markeredgewidth':0.4,
+			 'lines.markersize':3}
     rcParams.update(params)
     nm = len(custom)
     fig = figure(figsize=(6,4))
@@ -1633,13 +1655,13 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         plot(vvv, relat[i], style[i], label=custom[i])
 
 	# draw confidence intervals as circles here
-    cir = conf.get("mean", None)
+    cir = conf.get("vrev", None)
     for i in range(nm):
-        if cir: drawCI(fig, vvv, relat[i], cir[i], style[i])
+        if cir: drawCI(fig, vvv, cir[i], style[i])
     #for i in range(nm):
     #    plot(vvv, miner[i], style[i])
     #    plot(vvv, maxer[i], style[i])
-    legend(loc=legloc[0], numpoints = 1, markerscale = 0.8)
+    legend(loc=legloc[0], numpoints = 1)#, markerscale = 0.8)
     xlabel(xlab)
     if bAbsolute: ylabel('Average net revenues')
     else: ylabel('Relative Performance to EMSR/CR (%)')
@@ -1649,10 +1671,10 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         savefig(DISP+'1.eps')
         print "File saved: %s1.eps"%DISP
     
-    figure(figsize=(6,4))
+    fig = figure(figsize=(6,4))
     for i in range(nm):
         plot(vvv, waste[i], style[i], label=custom[i])
-    legend(loc=legloc[1], numpoints = 2, markerscale = 0.9)
+    legend(loc=legloc[1], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     ylabel('Average unused inventory (per 100)')
     #title('Average Empty Seats per 100')
@@ -1660,10 +1682,10 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         savefig(DISP+'2.eps')
         print "File saved: %s2.eps"%DISP
     
-    figure(figsize=(6,4))
+    fig = figure(figsize=(6,4))
     for i in range(nm):
         plot(vvv, bumps[i], style[i], label=custom[i])
-    legend(loc=legloc[2], numpoints = 2, markerscale = 0.9)
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     ylabel('Average service denials (per 10,000)')
     #title('Average Bumpings per 10,000')
@@ -1671,10 +1693,14 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         savefig(DISP+'3.eps')
         print "File saved: %s3.eps"%DISP
 
-    figure(figsize=(6,4))
+    fig = figure(figsize=(6,4))
     for i in range(nm):
         plot(vvv, miner[i], style[i], label=custom[i])
-    legend(loc=legloc[2], numpoints = 2, markerscale = 0.9)
+	# draw confidence intervals as circles here
+    cir = conf.get("vlos", None)
+    for i in range(nm):
+        if cir: drawCI(fig, vvv, cir[i], style[i])
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     if config.percentile: ylabel(
 			'Observed %ith percentile of revenue'%config.percentile)
@@ -1684,10 +1710,14 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         savefig(DISP+'4.eps')
         print "File saved: %s4.eps"%DISP
 
-    figure(figsize=(6,4))
+    fig = figure(figsize=(6,4))
     for i in range(nm):
         plot(vvv, maxer[i], style[i], label=custom[i])
-    legend(loc=legloc[2], numpoints = 2, markerscale = 0.9)
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
+	# draw confidence intervals as circles here
+    cir = conf.get("vhis", None)
+    for i in range(nm):
+        if cir: drawCI(fig, vvv, cir[i], style[i])
     xlabel(xlab)
     if config.percentile: ylabel(
 			'Observed %ith percentile of revenue'%
@@ -1698,10 +1728,10 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         savefig(DISP+'5.eps')
         print "File saved: %s5.eps"%DISP
 
-    figure(figsize=(6,4))
+    fig = figure(figsize=(6,4))
     for i in range(nm):
         plot(vvv, arsmt[i], style[i], label=custom[i])
-    legend(loc=legloc[2], numpoints = 2, markerscale = 0.9)
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     ylabel('Maximal Absolute Regret')
     #title('Average Bumpings per 10,000')
@@ -1709,16 +1739,33 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         savefig(DISP+'6.eps')
         print "File saved: %s6.eps"%DISP
 
-    figure(figsize=(6,4))
+    fig = figure(figsize=(6,4))
     for i in range(nm):
         plot(vvv, crsmt[i], style[i], label=custom[i])
-    legend(loc=legloc[2], numpoints = 2, markerscale = 0.9)
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     ylabel('Competitive Ratio')
     #title('Average Bumpings per 10,000')
     if DISP!=None: 
         savefig(DISP+'7.eps')
         print "File saved: %s7.eps"%DISP
+
+    cir = conf.get("vstd", None)
+    if not cir: return
+    fig = figure(figsize=(6,4))
+    for i in range(nm):
+        stds = [x for x,y in cir[i]]
+        plot(vvv, stds, style[i], label=custom[i])
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
+	# draw confidence intervals as circles here
+    for i in range(nm):
+        drawCI(fig, vvv, cir[i], style[i])
+    xlabel(xlab)
+    ylabel('Standard deviation of mean revenue')
+    #title('Average Bumpings per 10,000')
+    if DISP!=None: 
+        savefig(DISP+'8.eps')
+        print "File saved: %s8.eps"%DISP
 
 def loadResults(filen):
     pkl_file = open(filen, 'rb')
@@ -1731,8 +1778,9 @@ def loadResults(filen):
     maxer = pickle.load(pkl_file)
     arsmt = pickle.load(pkl_file)
     crsmt = pickle.load(pkl_file)
+    stds = pickle.load(pkl_file)
     pkl_file.close()
-    return custom,vvv,relat,waste,bumps,miner,maxer,arsmt,crsmt
+    return custom,vvv,relat,waste,bumps,miner,maxer,arsmt,crsmt,stds
 
 def loadPolicies(filen):
     pkl_file = open(policyFile(filen), 'rb')
