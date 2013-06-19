@@ -40,7 +40,7 @@ from ORinstance3 import sina
 
 pickle = 'cov3.pkl'
 gld = [s for s in scenas(sina, ((1., .8, .6, .4, .2, .0)))]
-nosh.enuSim(gld, 10000, pickle, mymeth)
+#nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'ORcov3'
 xlab = 'coefficient of variation'
 nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle)) 

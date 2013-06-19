@@ -1620,15 +1620,15 @@ def drawPolicies(DISP, xlab, custom, vvv, polis):
         else: 
            ylabel("nested bucket for fare class-%i"%(j+1))
 
-from matplotlib.patches import Ellipse
-def drawCI(fig, vvv, data, style, Z=1.96):
+from matplotlib.patches import Ellipse, Rectangle
+def drawCIcircles(fig, vvv, data, style, Z=1.96):
    '''draw confidence intervals as circles on plot'''
    w,h = fig.get_size_inches()
    ax = fig.gca()
-   aspect = h/(w*ax.get_data_ratio())
-   print w, h, aspect, data
+   aspect = h/(w*ax.get_data_ratio())*3 #six sigma
+   #print w, h, aspect, data
    ells=[Ellipse(xy=(x, y), 
-             width=std*Z*aspect, height=std*Z)
+             width=2*std*Z*aspect, height=2*std*Z)
        for x, (y, std) in zip(vvv, data)]
    for ell in ells:
       ell.set_facecolor('none')
@@ -1638,26 +1638,54 @@ def drawCI(fig, vvv, data, style, Z=1.96):
       #ell.set_linestyle('dashed')
       ax.add_artist(ell)
 
+def drawCIbars(fig, vvv, data, style, Z=1.96):
+   '''draw confidence intervals as error bars on plot'''
+   errorbar(vvv, [y for y, std in data], capsize=4, 
+		yerr=[std*Z for y, std in data], fmt=None, 
+		ecolor=style[0], elinewidth=0.5, barsabove=True)
+
+drawCI = drawCIcircles
+drawCI = drawCIbars
+
+def adjust_style(fig):
+    ax = fig.gca()
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.spines['left'].set_position(('axes',-0.02))
+    #ax.spines['bottom'].set_position(('axes',-0.02))
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    for o in fig.findobj(): o.set_clip_on(False)
+    subplots_adjust(left=0.15, right=0.95, 
+					bottom=0.12, top=0.92)
+
 def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 		miner, maxer, arsmt, crsmt, conf={}, legloc=(0,0,0)):
     params = {'axes.labelsize': 10,
              'text.fontsize': 10,
              'legend.fontsize': 10,
              'xtick.labelsize': 8,
+             #'xtick.direction': 'out',
              'ytick.labelsize': 8,
-			 'lines.linewidth': 0.4,
-			 'lines.markeredgewidth':0.4,
-			 'lines.markersize':3}
+             'ytick.direction': 'out',
+             'axis.linewidth': .5,
+			 'lines.linewidth': 0.3,
+			 'lines.markeredgewidth':0.2,
+			 #'lines.markerfacecolor':'None',
+			 'lines.markersize':4}
     rcParams.update(params)
     nm = len(custom)
     fig = figure(figsize=(6,4))
     for i in range(nm):
-        plot(vvv, relat[i], style[i], label=custom[i])
+        plot(vvv, relat[i], style[i], 
+				markerfacecolor='None', label=custom[i])
 
 	# draw confidence intervals as circles here
     cir = conf.get("vrev", None)
     for i in range(nm):
         if cir: drawCI(fig, vvv, cir[i], style[i])
+    adjust_style(fig)
+
     #for i in range(nm):
     #    plot(vvv, miner[i], style[i])
     #    plot(vvv, maxer[i], style[i])
@@ -1673,7 +1701,9 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     
     fig = figure(figsize=(6,4))
     for i in range(nm):
-        plot(vvv, waste[i], style[i], label=custom[i])
+        plot(vvv, waste[i], style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
+    adjust_style(fig)
     legend(loc=legloc[1], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     ylabel('Average unused inventory (per 100)')
@@ -1684,7 +1714,9 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     
     fig = figure(figsize=(6,4))
     for i in range(nm):
-        plot(vvv, bumps[i], style[i], label=custom[i])
+        plot(vvv, bumps[i], style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
+    adjust_style(fig)
     legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     ylabel('Average service denials (per 10,000)')
@@ -1695,11 +1727,13 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 
     fig = figure(figsize=(6,4))
     for i in range(nm):
-        plot(vvv, miner[i], style[i], label=custom[i])
+        plot(vvv, miner[i], style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
 	# draw confidence intervals as circles here
     cir = conf.get("vlos", None)
     for i in range(nm):
         if cir: drawCI(fig, vvv, cir[i], style[i])
+    adjust_style(fig)
     legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     if config.percentile: ylabel(
@@ -1712,12 +1746,14 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 
     fig = figure(figsize=(6,4))
     for i in range(nm):
-        plot(vvv, maxer[i], style[i], label=custom[i])
-    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
+        plot(vvv, maxer[i], style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
 	# draw confidence intervals as circles here
     cir = conf.get("vhis", None)
     for i in range(nm):
         if cir: drawCI(fig, vvv, cir[i], style[i])
+    adjust_style(fig)
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     if config.percentile: ylabel(
 			'Observed %ith percentile of revenue'%
@@ -1730,7 +1766,9 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 
     fig = figure(figsize=(6,4))
     for i in range(nm):
-        plot(vvv, arsmt[i], style[i], label=custom[i])
+        plot(vvv, arsmt[i], style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
+    adjust_style(fig)
     legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     ylabel('Maximal Absolute Regret')
@@ -1741,7 +1779,9 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 
     fig = figure(figsize=(6,4))
     for i in range(nm):
-        plot(vvv, crsmt[i], style[i], label=custom[i])
+        plot(vvv, crsmt[i], style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
+    adjust_style(fig)
     legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     ylabel('Competitive Ratio')
@@ -1755,11 +1795,14 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     fig = figure(figsize=(6,4))
     for i in range(nm):
         stds = [x for x,y in cir[i]]
-        plot(vvv, stds, style[i], label=custom[i])
+        plot(vvv, stds, style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
     legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
 	# draw confidence intervals as circles here
     for i in range(nm):
         drawCI(fig, vvv, cir[i], style[i])
+    adjust_style(fig)
+
     xlabel(xlab)
     ylabel('Standard deviation of mean revenue')
     #title('Average Bumpings per 10,000')
