@@ -11,8 +11,13 @@ sina.p = (0.0,0.2)
 sina.f = (1050.,567.,527.,350.)
 sina.V = 1.2*sina.f[0]/(1.0 - sum(sina.p)/2.0)
 #mean demand: 17.3, 45.1, 73.6, 19.8
-sina.U = (34.,90.,147.,39.)
-sina.L = (9.,19.,30.,1.)
+mean =(17.3, 45.1, 73.6, 19.8)
+#demand sigma: 5.8, 15.0, 13.2, 11.3
+stdev = (5.8, 15.0, 13.2, 11.3)
+sina.U = [int(m+2*s) for m,s in zip(mean, stdev)]
+sina.L = [max(0, int(m-2*s) for m,s in zip(mean, stdev)]
+print sina.L
+print sina.U
 print "Load Factoer: ", sina.demandFactor(), sina.V
 
 sinb = copy(sina)

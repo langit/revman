@@ -759,7 +759,6 @@ class PolicyBed:
             me.res[i] = 0.
 
     def execute(me, seq, rp):
-        bio = None 
         if me.BINO:
             bio = me.plc.execBino(seq, rp)
         else:
@@ -1074,7 +1073,8 @@ def getPolicies(scen, custom, verbo=True):
 						for i in range(prob.m+1)]
         nexp.initMRAS(avg, std, *config.cfgCE())
         nexp.search(config.iters, config.HCR)
-        nexp.research(config.iters/2, config.HCR)
+        while nexp.research(config.iters, config.HCR): pass
+        else: print "Search Done!"
         x = nexp.best[:]
         vc = sum(x[1:])
 
@@ -1103,7 +1103,8 @@ def getPolicies(scen, custom, verbo=True):
         avg = [(prob.L[i]+prob.U[i])/2. for i in range(0,prob.m+1)]
         nexp.initMRAS(avg, std, *config.cfgCE())
         nexp.search(config.iters, config.HAR)
-        nexp.research(config.iters/2, config.HAR)
+        while nexp.research(config.iters, config.HAR): pass
+        else: print "Search Done!"
         x = nexp.best[:]
         vc = sum(x[1:])
 
@@ -1364,6 +1365,8 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
     vstd = [None for pon in pls] 
     vlos = [None for pon in pls]
     vhis = [None for pon in pls]
+    vemp = [None for pon in pls]
+    vbum = [None for pon in pls]
 
     seq = src.nextSeq(config.LBH, COR)
     nop = src.nextRate(ptype) 
@@ -1413,13 +1416,21 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
         def lohistd_boot(revs):
             return revs[ipercent], revs[reps-ipercent],\
 							mustd(revs, True)[1]
-
+        remp = 100.0/scen.C 
         for k in range(len(pls)):
             revenues = sorted(r[0] for r in ras[k])
             vlos[k], vhis[k], vstd[k] = bootstrap(
 				revenues, lohistd_boot, 500)
             los[k], his[k] = lohi_percentiles(revenues)
             vrev[k] = mustd(revenues, True)
+			#empty if <0, bumps if >0.
+            vbum[k] = mustd([( d if d>0 else 0) 
+					for r,d in ras[k]], True)
+            vemp[k] = mustd([(-d if d<0 else 0) 
+					for r,d in ras[k]], True)
+            rbum = 10000./(scen.C - vemp[k][0] + vbum[k][0])
+            vbum[k] = [x*rbum for x in vbum[k]]
+            vemp[k] = [x*remp for x in vemp[k]]
 
     #find variance for each method 
 	print "Table: statistics for revenues"
@@ -1442,18 +1453,23 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
     #save the scenario details
     if fscen: pickle.dump(ras, fscen)
 
+    import math
     bench = pls[0].res[0]/reps/100.0 #for percentage
     for k in range(len(pls)):
         key[k] = pls[k].average(reps)
         lvl[k] = pls[k].levels()
         #addjustments
         if not bAbsolute: key[k][0]/= bench
-        key[k][1] *= 100.0/scen.C 
         #scen.C - avg(empty seats) + avg(denials)=avg(eff bookings)
         key[k][2] *= 10000.0/(scen.C-key[k][1]+key[k][2])
+        key[k][1] *= remp
         if verbo: print custom[k], key[k]
+        if verbo: print "+==>>", vemp[k], vbum[k]
         if verbo: print custom[k], lvl[k]
-	stds = {'vrev':vrev, 'vstd':vstd, 'vlos':vlos, 'vhis':vhis}
+        #assert math.fabs(key[k][1]-vemp[k][0])<1e-9
+        #assert math.fabs(key[k][2]-vbum[k][0])<1e-9
+	stds = {'vrev':vrev, 'vstd':vstd, 'vlos':vlos, 'vhis':vhis,
+					'vemp':vemp, 'vbum':vbum}
     return key,lvl,los,his,ars,crs,stds
 
 def barChart(data, label):
@@ -1537,6 +1553,8 @@ def enuSim(gld, reps, DISP, custom=meth):
     vstd =  [[] for i in range(nm)]
     vlos =  [[] for i in range(nm)]
     vhis =  [[] for i in range(nm)]
+    vemp =  [[] for i in range(nm)]
+    vbum =  [[] for i in range(nm)]
     vvv = [sinf.nid for sinf in gld]
 
     scenout = None
@@ -1561,7 +1579,10 @@ def enuSim(gld, reps, DISP, custom=meth):
             vstd[i].append(stds['vstd'][i])
             vlos[i].append(stds['vlos'][i])
             vhis[i].append(stds['vhis'][i])
-    stds = {'vrev':vrev,'vstd':vstd,'vlos':vlos,'vhis':vhis}
+            vemp[i].append(stds['vemp'][i])
+            vbum[i].append(stds['vbum'][i])
+    stds = {'vrev':vrev,'vstd':vstd,'vlos':vlos,'vhis':vhis,
+					'vemp':vemp, 'vbum':vbum}
 
     if scenout: 
         scenout.close()
@@ -1593,32 +1614,49 @@ from pprint import pprint
 def drawPolicies(DISP, xlab, custom, vvv, polis):
     nmeth = len(custom)
     nlevel = len(polis[0][0])
-    transp = []
+    transp, aggreg = [], []
     for i in range(nmeth):
         #transpose polis[i]
         transp.append( zip( *polis[i] ) )
+        aggreg.append( [[sum(limits[j:]) 
+				for j in range(nlevel)] 
+				for limits in polis[i]] )
+        aggreg[i] = zip( *aggreg[i] )
+
     fig = figure(figsize=(6,4))
     for i in range(nmeth):
-        plot(vvv, transp[i][0], style[i], label=custom[i])
+        plot(vvv, aggreg[i][0], style[i], label=custom[i],
+				markerfacecolor='None')
         for j in range(1, nlevel):
-            plot(vvv, transp[i][j], style[i])
-    legend(numpoints = 2, markerscale = 0.9, loc=0)
+            plot(vvv, aggreg[i][j], style[i],
+				markerfacecolor='None')
+    adjust_style(fig)
+    legend(numpoints = 1, loc=0)
     xlabel(xlab)
     if config.buckets:
         ylabel("buckets for fare classes")
     else: 
         ylabel("nested buckets for fare classes")
 
+    if DISP!=None: 
+        savefig(DISP+'-bucks.eps')
+        print "File saved: %s-bucks.eps"%DISP
+
     for j in range(nlevel):
         fig = figure(figsize=(6,4))
         for i in range(nmeth):
-            plot(vvv, transp[i][j], style[i], label=custom[i])
-        legend(numpoints = 2, markerscale = 0.9, loc=0)
+            plot(vvv, transp[i][j], style[i], label=custom[i],
+				markerfacecolor='None')
+        adjust_style(fig)
+        legend(numpoints = 1, loc=0)
         xlabel(xlab) 
         if config.buckets:
            ylabel("bucket for fare class-%i"%(j+1))
         else: 
            ylabel("nested bucket for fare class-%i"%(j+1))
+        if DISP!=None: 
+           savefig(DISP+'-bucks-%i.eps'%(j+1))
+           print "File saved: %s-bucks-%i.eps"%(DISP,j+1)
 
 from matplotlib.patches import Ellipse, Rectangle
 def drawCIcircles(fig, vvv, data, style, Z=1.96):
@@ -1661,7 +1699,7 @@ def adjust_style(fig):
 
 def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 		miner, maxer, arsmt, crsmt, conf={}, legloc=(0,0,0)):
-    params = {'axes.labelsize': 10,
+    rcParams.update({'axes.labelsize': 10,
              'text.fontsize': 10,
              'legend.fontsize': 10,
              'xtick.labelsize': 8,
@@ -1672,8 +1710,7 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 			 'lines.linewidth': 0.3,
 			 'lines.markeredgewidth':0.2,
 			 #'lines.markerfacecolor':'None',
-			 'lines.markersize':4}
-    rcParams.update(params)
+			 'lines.markersize':4})
     nm = len(custom)
     fig = figure(figsize=(6,4))
     for i in range(nm):
@@ -1703,6 +1740,9 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     for i in range(nm):
         plot(vvv, waste[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
+    cir = conf.get("vemp", None)
+    for i in range(nm):
+        if cir: drawCI(fig, vvv, cir[i], style[i])
     adjust_style(fig)
     legend(loc=legloc[1], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
@@ -1716,6 +1756,9 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     for i in range(nm):
         plot(vvv, bumps[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
+    cir = conf.get("vbum", None)
+    for i in range(nm):
+        if cir: drawCI(fig, vvv, cir[i], style[i])
     adjust_style(fig)
     legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
@@ -2146,13 +2189,18 @@ class noshexp:
             me.s[i] = me.s[i]*me.alpha + std[i]*me.beta
 
     def research(me, maxit, tobj):
-        import math
-        if sum(math.fabs(a-b) for a, b 
-			in zip(me.best[1:], me.u[1:]))<1:
-            return
+        best = me.best[:]
+        #if sum(math.fabs(a-b) for a, b 
+		#	in zip(me.best[1:], me.u[1:]))<0.5: #precision ctrl
+        #    return
         me.u = me.best
-        me.s = [i/2.+1 for i in me.u]
+        me.s = [i+1 for i in me.u] #or i/2.
         me.search(maxit, tobj)
+        import math
+        return math.fabs(best[0]-me.best[0]) > max(
+						0.001, 0.005*best[0])
+			#or sum(math.fabs(a-b) for a,b in 
+			#		zip(best[1:], me.best[1:])) > 0.1*me.m
 
     def search(me, maxit, tobj):
         if tobj == noshowConfig.HCR:

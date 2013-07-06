@@ -12,9 +12,10 @@ nosh.config.LBH=True
 nosh.config.BINO=True
 nosh.config.svl =0.001
 
-nosh.config.samples = 3000 #2900
-nosh.config.elites  = 200 #200 
+nosh.config.samples = 400 #2900
+nosh.config.elites  = 30 #200 
 nosh.config.smoother = 0.7
+nosh.config.iters = 31
 
 #nosh.config.percentile = 0
 
@@ -39,10 +40,10 @@ def scenas(scen, ps):
 #from ORinstance3 import sina
 from ORinstance4 import sina
 
-pickle = 'cov3.pkl'
-gld = [s for s in scenas(sina, ((1., .8, .6, .4, .2, .0)))]
-nosh.enuSim(gld, 10000, pickle, mymeth)
-DISP = 'ORcov3'
+pickle = 'cov4easy.pkl'
+gld = [s for s in scenas(sina, (0.5,.3,0.25,.2,0.15,.1,0.05,.0))]
+nosh.enuSim(gld, 1000, pickle, mymeth)
+DISP = 'cov4easy'
 xlab = 'coefficient of variation'
 nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle)) 
 nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
