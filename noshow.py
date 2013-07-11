@@ -807,6 +807,8 @@ class noshowConfig:
         me.buckets = True
         me.basemult = 0 #pure CR
         me.percentile = 5 #5th and 95th percentiles
+		#uset: default to sqrt(1/12.)/0.5 (uniform distr)
+        me.uset = sqrt(1./3.) #uncertainty set ratio
 
     def cfgCE(me):
         return me.samples, me.elites, me.smoother
@@ -1395,6 +1397,12 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
         std = sqrt((sg-mu*mu)/(no if std4mu else 1.0))
         return mu, std
 
+    def mustd_minus(data, std4mu=False): #mu and std
+        no = float(len(data))
+        mu = sum(data)/no
+        sg = sum(p*p for p in (mu-d if d<mu else 0 for d in data))/no
+        return mu, sqrt(sg/(no if std4mu else 1.0))
+
     def bootstrap(revs, statis, itsN):
         stt = [0 for i in range(itsN)]
         for i in range(itsN): #resample with replacement
@@ -1416,7 +1424,8 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
 
         def lohistd_boot(revs):
             return revs[ipercent], revs[reps-ipercent],\
-							mustd(revs, True)[1]
+							mustd_minus(revs, True)[1]
+
         remp = 100.0/scen.C 
         for k in range(len(pls)):
             revenues = sorted(r[0] for r in ras[k])
@@ -2135,8 +2144,16 @@ class noshexp:
         assert isinstance(info, SimScena)
         me.scen = [] 
         me.extr = []
+
+        us = info.uset if hasattr(info,'uset') else config.uset 
+        mean = [(x+y)/2. for x,y in zip(info.U, info.L)]
+        me.U = (0,)+tuple(int(m+(x-m)*us+.9) 
+						for m,x in zip(mean, info.U))
+        me.L = (0,)+tuple(int(m+(x-m)*us) 
+						for m,x in zip(mean, info.L))
+
         if config.BINO:
-            B = 1+int(sum(info.U))
+            B = 1+int(sum(me.U))
             if B < info.C:
                B = info.C
                print "Warning: sum(U) < C!"
@@ -2149,8 +2166,6 @@ class noshexp:
         h = 1.0 - h + info.beta*h
         me.f = (info.V*(1-info.p[0]),) + info.f #fares
         me.f = [h*fi for fi in me.f]
-        me.U = (0,)+info.U
-        me.L = (0,)+info.L
         me.m = info.m
         me.C = info.C
         me.baseK = config.basemult*sum(f*(u+l)/2. 
