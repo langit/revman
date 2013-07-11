@@ -1074,7 +1074,7 @@ def getPolicies(scen, custom, verbo=True):
         nexp.initMRAS(avg, std, *config.cfgCE())
         nexp.search(config.iters, config.HCR)
         while nexp.research(config.iters, config.HCR): pass
-        else: print "Search Done!"
+        else: print "Search Done:", nexp.best
         x = nexp.best[:]
         vc = sum(x[1:])
 
@@ -1099,12 +1099,13 @@ def getPolicies(scen, custom, verbo=True):
         dirm["EMSR/HCR"] = PolicyBed(zp, config.BINO)
 
     if "HAR/OSA" in custom or "EMSR/HAR" in custom:
-        std = [prob.U[i]-prob.L[i] for i in range(0,prob.m+1)]
-        avg = [(prob.L[i]+prob.U[i])/2. for i in range(0,prob.m+1)]
+        avg = [(prob.L[i]+prob.U[i])/2. for i in range(prob.m+1)]
+        std = [prob.U[i]-prob.L[i] + avg[i]/3. 
+						for i in range(prob.m+1)]
         nexp.initMRAS(avg, std, *config.cfgCE())
         nexp.search(config.iters, config.HAR)
         while nexp.research(config.iters, config.HAR): pass
-        else: print "Search Done!"
+        else: print "Search Done:", nexp.best
         x = nexp.best[:]
         vc = sum(x[1:])
 
@@ -1686,7 +1687,7 @@ drawCI = drawCIcircles
 drawCI = drawCIbars
 
 def adjust_style(fig):
-    ax = fig.gca()
+    ax = gca()
     ax.spines['right'].set_color('none')
     ax.spines['top'].set_color('none')
     ax.spines['left'].set_position(('axes',-0.02))
@@ -1853,6 +1854,87 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         savefig(DISP+'8.eps')
         print "File saved: %s8.eps"%DISP
 
+def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
+		miner, maxer, arsmt, crsmt, conf={}, legloc=(0,0,0)):
+    rcParams.update({'axes.labelsize': 10,
+             'text.fontsize': 8,
+             'legend.fontsize': 8,
+             'xtick.labelsize': 7,
+             #'xtick.direction': 'out',
+             'ytick.labelsize': 7,
+             'ytick.direction': 'out',
+             'axis.linewidth': .5,
+			 'lines.linewidth': 0.3,
+			 'lines.markeredgewidth':0.2,
+			 #'lines.markerfacecolor':'None',
+			 'lines.markersize':4})
+    nm = len(custom)
+    figure(figsize=(6,4))
+    fig = subplot(221)
+    for i in range(nm):
+        plot(vvv, relat[i], style[i], 
+				markerfacecolor='None', label=custom[i])
+	# draw confidence intervals as circles here
+    cir = conf.get("vrev", None)
+    for i in range(nm):
+        if cir: drawCI(fig, vvv, cir[i], style[i])
+    adjust_style(fig)
+
+    legend(loc=legloc[0], numpoints = 1)#, markerscale = 0.8)
+    xlabel(xlab)
+    if bAbsolute: ylabel('Average net revenues')
+    else: ylabel('Relative Performance to EMSR/CR (%)')
+    #title('Relative Performance to EMSR/CR')
+
+    fig = subplot(222)
+    cir = conf.get("vstd", None)
+    for i in range(nm):
+        stds = [x for x,y in cir[i]]
+        plot(vvv, stds, style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
+	# draw confidence intervals as circles here
+    for i in range(nm):
+        drawCI(fig, vvv, cir[i], style[i])
+    adjust_style(fig)
+    xlabel(xlab)
+    ylabel('Standard deviation of mean revenue')
+
+    fig = subplot(223)
+    for i in range(nm):
+        plot(vvv, miner[i], style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
+	# draw confidence intervals as circles here
+    cir = conf.get("vlos", None)
+    for i in range(nm):
+        if cir: drawCI(fig, vvv, cir[i], style[i])
+    adjust_style(fig)
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
+    xlabel(xlab)
+    if config.percentile: ylabel(
+			'Observed %ith percentile of revenue'%config.percentile)
+    else: ylabel('Minimal Observed Revenue')
+
+    fig = subplot(224)
+    for i in range(nm):
+        plot(vvv, maxer[i], style[i], #label=custom[i])
+				markerfacecolor='None', label=custom[i])
+	# draw confidence intervals as circles here
+    cir = conf.get("vhis", None)
+    for i in range(nm):
+        if cir: drawCI(fig, vvv, cir[i], style[i])
+    adjust_style(fig)
+    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
+    xlabel(xlab)
+    if config.percentile: ylabel(
+			'Observed %ith percentile of revenue'%
+			(100-config.percentile))
+    else: ylabel('Maximal Observed Revenue')
+
+    if DISP!=None: 
+        savefig(DISP+'0.eps')
+        print "File saved: %s0.eps"%DISP
+ 
 def loadResults(filen):
     pkl_file = open(filen, 'rb')
     custom = pickle.load(pkl_file)
@@ -2070,6 +2152,7 @@ class noshexp:
         me.U = (0,)+info.U
         me.L = (0,)+info.L
         me.m = info.m
+        me.C = info.C
         me.baseK = config.basemult*sum(f*(u+l)/2. 
 				for f,u,l in zip(info.f, info.U, info.L))
 
@@ -2158,12 +2241,14 @@ class noshexp:
         me.beta = 1. - alpha
         me.z = [[0 for i in range(0,me.m+1)] for j in range(0,z)]
         me.gauss = Random().gauss
+        me.best = [0.0 for i in range(0,me.m+1)]
 
-    def sample(me, x, fobj): #generate i^th sample
-        for j in range(1, me.m+1):
+    def sample(me, x, fobj, cut): #generate i^th sample
+        for j in range(1, cut):
             x[j] = me.gauss(me.u[j], me.s[j])
             if x[j] < 0: x[j] = 0 
-            elif x[j] > me.U[j]: x[j] = me.U[j]
+            elif x[j] > me.U[j]+.5: x[j] = me.U[j]+.5
+        for j in range(cut, me.m+1): x[j] = 0 
         x[0] = fobj(x)
 
     #The following are equivalent: li = [(1,2),(3,1)]
@@ -2188,6 +2273,27 @@ class noshexp:
             me.u[i] = me.u[i]*me.alpha + avg[i]*me.beta
             me.s[i] = me.s[i]*me.alpha + std[i]*me.beta
 
+    def update(me, _): #MX way
+        avg=[0.0 for i in range(me.m+1)]
+        std=[0.0 for i in range(me.m+1)]
+        for j in range(me.e):
+            for i in range(me.m+1):
+                z = me.z[j][i]
+                avg[i] += z
+                std[i] += z*z
+        for i in range(me.m+1): 
+            if avg[i] < 0.0: avg[i] = 0
+            avg[i] /= float(me.e)
+            std[i] /= float(me.e)
+            std[i] -= avg[i]*avg[i]
+            z = avg[i] - me.u[i]
+            std[i] += z*z
+            if std[i] < 1e-9: std[i] = 1e-9 
+            std[i] = sqrt(std[i])
+        for i in range(me.m+1): 
+            me.u[i] = me.u[i]*me.alpha + avg[i]*me.beta
+            me.s[i] = me.s[i]*me.alpha + std[i]*me.beta
+
     def research(me, maxit, tobj):
         best = me.best[:]
         #if sum(math.fabs(a-b) for a, b 
@@ -2195,31 +2301,33 @@ class noshexp:
         #    return
         me.u = me.best
         me.s = [i+1 for i in me.u] #or i/2.
+        me.best = [0.0 for i in range(0,me.m+1)]
         me.search(maxit, tobj)
         import math
-        return math.fabs(best[0]-me.best[0]) > max(
+        bigdif = math.fabs(best[0]-me.best[0]) > max(
 						0.001, 0.005*best[0])
 			#or sum(math.fabs(a-b) for a,b in 
 			#		zip(best[1:], me.best[1:])) > 0.1*me.m
+        if (tobj==noshowConfig.HCR and me.best[0]<best[0]) or \
+               (tobj>noshowConfig.HCR and me.best[0]>best[0]): 
+                 me.best = best
+        return bigdif
 
-    def search(me, maxit, tobj):
+    def cutsearch(me, maxit, tobj, cut=None):
+        if cut is None: cut = me.m + 1
         if tobj == noshowConfig.HCR:
             fobj = me.gamma 
-            me.best = [0.0 for i in range(0,me.m+1)]
         elif tobj == noshowConfig.HAR: 
             fobj = me.regret
-            me.best[0] = fobj(me.best)
         elif tobj == 2: 
             fobj = me.wregret
-            me.best[0] = fobj(me.best, True)
-        else: raise "BAD argument 'tobj': "+ str(tobj)
-
-        fmt = '%.3f'
-        if tobj > 0:  fmt = '%.1f'
+        else: raise "BAD argument 'tobj': " + str(tobj)
+        me.best[0]=fobj(me.best) if tobj!=2 else fobj(me.best,True)
+        fmt = '%.3f' if tobj <= 0 else '%.1f'
         #print "Searching with obj: ", fobj
 
-        for it in range(0,maxit):
-            for x in me.z: me.sample(x, fobj)
+        for it in range(0, maxit):
+            for x in me.z: me.sample(x, fobj, cut)
             #sort samples and calculate weights
             me.z.sort(key=lambda x: x[0], reverse=(tobj==0))
             wet=[1.+max(0,me.z[j][0]) for j in range(me.e)]
@@ -2229,10 +2337,11 @@ class noshexp:
             #update the distribution
             me.update(wet)
             #record the best
-            if (tobj==0 and me.z[0][0]>me.best[0]) or \
-               (tobj>=1 and me.z[0][0]<me.best[0]): 
-               for i in range(me.m+1):
-                   me.best[i] = max(0.0, me.z[0][i])
+            #print me.z[0], me.best
+            #fobj(me.z[0], verbose=True)
+            if (tobj==noshowConfig.HCR and me.z[0][0]>me.best[0])\
+               or (tobj>noshowConfig.HCR and me.z[0][0]<me.best[0]): 
+                   me.best = me.z[0][:]
             if it % config.vsearch == 0 : 
                print it, '&', fmt%me.best[0],
                for bik in range(1, me.m+1):
@@ -2242,6 +2351,23 @@ class noshexp:
         print "MRAS Mean: ", me.u
         print "MRAS Std:  ", me.s
 
+    def search(me, maxit, tobj, cut=None):
+        best,u,s = None, me.u, me.s #u,s must be list
+        for mincut in range(2, me.m+2):
+            if sum(me.U[1:mincut])>me.C: break
+        for cut in range(mincut, me.m+2):
+            me.u, me.s = u[:], s[:] 
+            me.best = [0.0 for i in range(0,me.m+1)]
+            print "### Searching with cut =", cut
+            print "### Bounds:", me.L, me.U
+            print "### Std:", me.s
+            me.cutsearch(maxit, tobj, cut)
+            if best is None or \
+			   (tobj==noshowConfig.HCR and me.best[0]>best[0]) or\
+               (tobj>noshowConfig.HCR and me.best[0]<best[0]): 
+                 best = me.best[:]
+        me.best = best
+        print "Best Found (Multicut):", me.best
 #NOTE: use reduce to get a sum of f(x) for all x in a list:
 #For example, let f(x) = x*x, and li is a list of numbers.
 #The python code goes like this:
