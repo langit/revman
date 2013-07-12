@@ -1,5 +1,5 @@
 '''
-the effect of uncertainty set.
+Try to measure in multiple ways.
 '''
 
 import noshow as nosh
@@ -14,24 +14,29 @@ nosh.config.svl =0.001
 nosh.config.samples = 2000
 nosh.config.elites  = 200 
 nosh.config.smoother = 0.5
+nosh.config.iters = 51
 
+#nosh.config.buckets = False
 #mymeth = ('OBSA/CR','EMSR/CR','EMSR/NV', 'CRSA/NV', 'DP/LBH', 'EMSR/SL')
-mymeth = ('EMSR/NV', 'DP/LBH', 'EMSR/SL', 'HCR/OSA', 'HAR/OSA')
+mymeth = ('DP/LBH', 'EMSR/NV', 'EMSR/SL', 'HCR/OSA', 'HAR/OSA')
 
 def scenas(scen, ps):
+    std_scale = sqrt(1./3) #half * std_scale = std of uniform
 	for us in ps:
 		newscen = copy(scen)
-		newscen.uset = newscen.nid = us
+		newscen.uset = us * std_scale
+        newscen.nid = us
 		print "## Scenario LOAD Factor:", newscen.demandFactor()
 		yield newscen
 
-from ORinstance3 import sina
+from ORinstance4 import sina
 
-pickle = 'uset3.pkl'
-gld = [s for s in scenas(sina, (i/10. for i in range(11)))]
+pickle = 'uset4.pkl'
+gld = [s for s in scenas(sina, (1+(i/5.-1)*.9999999 
+		for i in range(10)))]
 nosh.enuSim(gld, 10000, pickle, mymeth)
-DISP = 'ORuset3'
-xlab = 'unsertainty set factor'
+DISP = 'uset4'
+xlab = 'unsertainty set multiplier' #to std
 nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))
-#nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
+nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
 if DISP is None: pylab.show()

@@ -21,8 +21,7 @@ nosh.config.smoother = 0.7
 #nosh.config.basemult = 4
 
 #mymeth = ('OBSA/CR','EMSR/CR','EMSR/NV', 'CRSA/NV', 'DP/LBH', 'EMSR/SL')
-mymeth = ('EMSR/HCR', 'EMSR/HAR', 'EMSR/NV', 'DP/LBH', 
-		   'EMSR/SL', 'HCR/OSA', 'HAR/OSA')
+mymeth = ('DP/LBH', 'EMSR/NV', 'EMSR/SL', 'HCR/OSA', 'HAR/OSA')
 
 def scenas(scen, ps):
 	mus = tuple((u+l)/2. for u,l in zip(scen.L, scen.U))

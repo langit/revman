@@ -1424,7 +1424,7 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
 
         def lohistd_boot(revs):
             return revs[ipercent], revs[reps-ipercent],\
-							mustd_minus(revs, True)[1]
+							mustd(revs, True)[1]
 
         remp = 100.0/scen.C 
         for k in range(len(pls)):

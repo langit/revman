@@ -18,7 +18,7 @@ nosh.config.iters = 51
 
 #nosh.config.buckets = False
 #mymeth = ('OBSA/CR','EMSR/CR','EMSR/NV', 'CRSA/NV', 'DP/LBH', 'EMSR/SL')
-mymeth = ('EMSR/NV', 'DP/LBH', 'EMSR/SL', 'HCR/OSA', 'HAR/OSA')
+mymeth = ('DP/LBH', 'EMSR/NV', 'EMSR/SL', 'HCR/OSA', 'HAR/OSA')
 
 def scenas(scen, ps):
 	for C in ps:
