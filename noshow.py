@@ -1723,6 +1723,7 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 			 'lines.markersize':4})
     nm = len(custom)
     fig = figure(figsize=(6,4))
+    autoscale(tight=True) 
     for i in range(nm):
         plot(vvv, relat[i], style[i], 
 				markerfacecolor='None', label=custom[i])
@@ -1747,6 +1748,7 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         print "File saved: %s1.eps"%DISP
     
     fig = figure(figsize=(6,4))
+    autoscale(tight=True) 
     for i in range(nm):
         plot(vvv, waste[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
@@ -1763,6 +1765,7 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         print "File saved: %s2.eps"%DISP
     
     fig = figure(figsize=(6,4))
+    autoscale(tight=True) 
     for i in range(nm):
         plot(vvv, bumps[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
@@ -1779,6 +1782,7 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         print "File saved: %s3.eps"%DISP
 
     fig = figure(figsize=(6,4))
+    autoscale(tight=True) 
     for i in range(nm):
         plot(vvv, miner[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
@@ -1798,6 +1802,7 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         print "File saved: %s4.eps"%DISP
 
     fig = figure(figsize=(6,4))
+    autoscale(tight=True) 
     for i in range(nm):
         plot(vvv, maxer[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
@@ -1818,6 +1823,7 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         print "File saved: %s5.eps"%DISP
 
     fig = figure(figsize=(6,4))
+    autoscale(tight=True) 
     for i in range(nm):
         plot(vvv, arsmt[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
@@ -1831,6 +1837,7 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         print "File saved: %s6.eps"%DISP
 
     fig = figure(figsize=(6,4))
+    autoscale(tight=True) 
     for i in range(nm):
         plot(vvv, crsmt[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
@@ -1846,6 +1853,7 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     cir = conf.get("vstd", None)
     if not cir: return
     fig = figure(figsize=(6,4))
+    autoscale(tight=True) 
     for i in range(nm):
         stds = [x for x,y in cir[i]]
         plot(vvv, stds, style[i], #label=custom[i])
@@ -2149,7 +2157,7 @@ class noshexp:
         mean = [(x+y)/2. for x,y in zip(info.U, info.L)]
         me.U = (0,)+tuple(int(m+(x-m)*us+.9) 
 						for m,x in zip(mean, info.U))
-        me.L = (0,)+tuple(int(m+(x-m)*us) 
+        me.L = (0,)+tuple(max(0, int(m+(x-m)*us))
 						for m,x in zip(mean, info.L))
 
         if config.BINO:

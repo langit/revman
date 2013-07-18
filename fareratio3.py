@@ -3,17 +3,7 @@ from random import uniform
 from copy import copy
 import pylab
 
-sina = nosh.SimScena()
-sina.C = 90.0
-sina.m = 2
-sina.beta = 0.2
-sina.p = (0.1,0.1)
-sina.f = (100.,40.)
-sina.V = 300.0
-sina.U = (75.,120.)
-sina.L = (25.,60.)
-print "Demand Factoer: ", sina.demandFactor(), sina.V
-
+from ORinstance3 import sina
 
 nosh.config.LBH=True
 nosh.config.BINO=True
@@ -27,17 +17,20 @@ nosh.config.iters = 51
 mymeth = ('DP/LBH', 'EMSR/NV', 'EMSR/SL',#'EMSR/HCR', 'EMSR/HAR',
 				'HCR/OSA', 'HAR/OSA')
 def scenas(scen, ratios):
+	f = scen.f
+	rat = f[2]/float(f[1])
 	for r in ratios:
 		newscen = copy(scen)
-		newscen.f = (scen.f[0], scen.f[0]*r)
+		f1 = f[0]*r 
+		newscen.f = (f[0], f1, f1*rat)
 		newscen.nid = r
 		yield newscen
 
-pickle = 'fareratio.pkl'
+pickle = 'fareratio3.pkl'
 gld = [s for s in scenas(sina, ((i/10.-.5)*.99999+.5 
 		for i in range(1,10)))]
-nosh.enuSim(gld, 10000, pickle, mymeth)
-DISP = 'fareratio'
+#nosh.enuSim(gld, 10000, pickle, mymeth)
+DISP = 'ORfareratio3'
 xlab = 'fare ratio'
 nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle))
 nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))

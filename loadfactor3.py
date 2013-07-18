@@ -22,14 +22,14 @@ def scenas(scen, ps):
 	for C in ps:
 		newscen = copy(scen)
 		newscen.C = newscen.nid = C 
-		print "## Scenario LOAD Factor:", newscen.demandFactor()
+		print "## LOAD Factor:", newscen.demandFactor()*.9
 		yield newscen
 
 from ORinstance3 import sina
 
 pickle = 'loadfactor3.pkl'
-gld = [s for s in scenas(sina, range(90, 151, 10))]
-nosh.enuSim(gld, 10000, pickle, mymeth)
+gld = [s for s in scenas(sina, range(90, 181, 10))]
+#nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'ORloadfactor3'
 xlab = 'total number of seats'
 nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))

@@ -21,11 +21,11 @@ nosh.config.iters = 51
 mymeth = ('DP/LBH', 'EMSR/NV', 'EMSR/SL', 'HCR/OSA', 'HAR/OSA')
 
 def scenas(scen, ps):
-    std_scale = sqrt(1./3) #half * std_scale = std of uniform
+	std_scale = 1./3.**.5 #half * std_scale = std of uniform
 	for us in ps:
 		newscen = copy(scen)
 		newscen.uset = us * std_scale
-        newscen.nid = us
+		newscen.nid = us
 		print "## Scenario LOAD Factor:", newscen.demandFactor()
 		yield newscen
 

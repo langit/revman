@@ -35,8 +35,7 @@ def scenas(scen, ps):
 		#print "Upper bound:", newscen.U
 		yield newscen
 
-#from ORinstance3 import sina
-from ORinstance4 import sina
+from ORinstance3 import sina
 
 pickle = 'cov3.pkl'
 gld = [s for s in scenas(sina, ((1., .8, .6, .4, .2, .0)))]
