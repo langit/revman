@@ -34,7 +34,8 @@ gld = [s for s in scenas(sina, (1+(i/5.-1)*.9999999
 		for i in range(10)))]
 nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'ORuset3'
-xlab = 'unsertainty set multiplier' #to std
+xlab = 'Unsertainty set factor' #to std
 nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))
-nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
+#nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
+nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle))
 if DISP is None: pylab.show()

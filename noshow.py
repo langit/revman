@@ -828,7 +828,7 @@ config = noshowConfig()
 meth = ['DP/LBH', 'EMSR/CR', 'OBSA/CR', 'EMSR/NV', 'EMSR/SL',
                  'HCR/OSA', 'HAR/OSA', 'EMSR/HCR', 'EMSR/HAR']
 #style = ['mp--','cD-.','ro--','gs-','cv-.','b^-', 'k+:', 'yx-', 'g+-']
-style = ['mD--','cs-.','rp--','gH-','c*-.','bx-', 'k+:', 'y.-', 'g,-']
+style = ['mD--','cx-','rp:','g+-','b*-','kH-', 'ys:', 'k.-', 'g,-']
 #COR: Covariance
 COR=False
 
@@ -1695,7 +1695,7 @@ def drawCIbars(fig, vvv, data, style, Z=1.96):
 drawCI = drawCIcircles
 drawCI = drawCIbars
 
-def adjust_style(fig):
+def adjust_style(fig, subadj=True):
     ax = gca()
     ax.spines['right'].set_color('none')
     ax.spines['top'].set_color('none')
@@ -1704,7 +1704,7 @@ def adjust_style(fig):
     ax.xaxis.set_ticks_position('bottom')
     ax.yaxis.set_ticks_position('left')
     for o in fig.findobj(): o.set_clip_on(False)
-    subplots_adjust(left=0.15, right=0.95, 
+    if subadj: subplots_adjust(left=0.15, right=0.95, 
 					bottom=0.12, top=0.92)
 
 def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
@@ -1873,12 +1873,12 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 
 def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 		miner, maxer, arsmt, crsmt, conf={}, legloc=(0,0,0)):
-    rcParams.update({'axes.labelsize': 10,
-             'text.fontsize': 8,
-             'legend.fontsize': 8,
-             'xtick.labelsize': 7,
+    rcParams.update({'axes.labelsize': 6,
+             'text.fontsize': 5,
+             'legend.fontsize': 5,
+             'xtick.labelsize': 4,
              #'xtick.direction': 'out',
-             'ytick.labelsize': 7,
+             'ytick.labelsize': 5,
              'ytick.direction': 'out',
              'axis.linewidth': .5,
 			 'lines.linewidth': 0.3,
@@ -1895,7 +1895,7 @@ def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     cir = conf.get("vrev", None)
     for i in range(nm):
         if cir: drawCI(fig, vvv, cir[i], style[i])
-    adjust_style(fig)
+    adjust_style(fig, False)
 
     legend(loc=legloc[0], numpoints = 1)#, markerscale = 0.8)
     xlabel(xlab)
@@ -1903,7 +1903,7 @@ def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     else: ylabel('Relative Performance to EMSR/CR (%)')
     #title('Relative Performance to EMSR/CR')
 
-    fig = subplot(222)
+    fig = subplot(223)
     cir = conf.get("vstd", None)
     for i in range(nm):
         stds = [x for x,y in cir[i]]
@@ -1913,11 +1913,11 @@ def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 	# draw confidence intervals as circles here
     for i in range(nm):
         drawCI(fig, vvv, cir[i], style[i])
-    adjust_style(fig)
+    adjust_style(fig, False)
     xlabel(xlab)
     ylabel('Standard deviation of mean revenue')
 
-    fig = subplot(223)
+    fig = subplot(224)
     for i in range(nm):
         plot(vvv, miner[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
@@ -1925,14 +1925,14 @@ def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     cir = conf.get("vlos", None)
     for i in range(nm):
         if cir: drawCI(fig, vvv, cir[i], style[i])
-    adjust_style(fig)
+    adjust_style(fig, False)
     legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     if config.percentile: ylabel(
 			'Observed %ith percentile of revenue'%config.percentile)
     else: ylabel('Minimal Observed Revenue')
 
-    fig = subplot(224)
+    fig = subplot(222)
     for i in range(nm):
         plot(vvv, maxer[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
@@ -1940,14 +1940,14 @@ def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     cir = conf.get("vhis", None)
     for i in range(nm):
         if cir: drawCI(fig, vvv, cir[i], style[i])
-    adjust_style(fig)
+    adjust_style(fig, False)
     legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
     xlabel(xlab)
     if config.percentile: ylabel(
 			'Observed %ith percentile of revenue'%
 			(100-config.percentile))
     else: ylabel('Maximal Observed Revenue')
-
+    tight_layout()
     if DISP!=None: 
         savefig(DISP+'0.eps')
         print "File saved: %s0.eps"%DISP
