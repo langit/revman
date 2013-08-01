@@ -808,7 +808,8 @@ class noshowConfig:
         me.basemult = 0 #pure CR
         me.percentile = 5 #5th and 95th percentiles
 		#uset: default to sqrt(1/12.)/0.5 (uniform distr)
-        me.uset = sqrt(1./3.) #uncertainty set ratio
+        #me.uset = sqrt(1./3.) #uncertainty set ratio
+        me.uset = .5 #25% & 75% quantiles
 
     def cfgCE(me):
         return me.samples, me.elites, me.smoother

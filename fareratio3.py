@@ -9,8 +9,8 @@ nosh.config.LBH=True
 nosh.config.BINO=True
 nosh.config.svl =0.001
 
-nosh.config.samples = 2000 #2900
-nosh.config.elites  = 200 #200 
+nosh.config.samples = 3000 #2900
+nosh.config.elites  = 300 #200 
 nosh.config.smoother = 0.5
 nosh.config.iters = 51
 
@@ -29,7 +29,7 @@ def scenas(scen, ratios):
 pickle = 'fareratio3.pkl'
 gld = [s for s in scenas(sina, ((i/10.-.5)*.99999+.5 
 		for i in range(1,10)))]
-#nosh.enuSim(gld, 10000, pickle, mymeth)
+nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'ORfareratio3'
 xlab = 'fare ratio'
 nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle))

@@ -1,6 +1,5 @@
 '''
-Test effect of:
-Coefficient of variation 
+Test effect of: demand volatility
 '''
 
 import noshow as nosh
@@ -13,7 +12,7 @@ nosh.config.BINO=True
 nosh.config.svl =0.001
 
 nosh.config.samples = 3000 #2900
-nosh.config.elites  = 200 #200 
+nosh.config.elites  = 300 #200 
 nosh.config.smoother = 0.7
 
 #nosh.config.percentile = 0
@@ -26,22 +25,23 @@ mymeth = ('DP/LBH', 'EMSR/NV', 'EMSR/SL', 'HCR/OSA', 'HAR/OSA')
 def scenas(scen, ps):
 	mus = tuple((u+l)/2. for u,l in zip(scen.L, scen.U))
 	for p in ps:
-		assert 0. <= p <= 1., "p out of range!"
 		newscen = copy(scen)
-		newscen.L = tuple(u-u*p for u in mus)
-		newscen.U = tuple(u+u*p for u in mus)
+		newscen.L = (u-(u-l)*p for u,l in zip(mus,scen.L))
+		newscen.L = tuple(l if l>=0 else 0. for l in newscen.L)
+		newscen.U = tuple(u+(h-u)*p for u,h in zip(mus,scen.U))
 		newscen.nid = p #/3**.5
-		print "## Scenario with CV:", newscen.nid
+		print "## Scenario volatility:", newscen.nid
 		#print "Upper bound:", newscen.U
 		yield newscen
 
 from ORinstance3 import sina
 
 pickle = 'cov3.pkl'
-gld = [s for s in scenas(sina, ((1., .8, .6, .4, .2, .0)))]
+gld = [s for s in scenas(sina, (i/5. for i in range(1,7)))]
 nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'ORcov3'
-xlab = 'coefficient of variation'
+xlab = 'demand volatility (g)'
+nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle)) 
 nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle)) 
 nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
 if DISP is None: pylab.show()
