@@ -1,6 +1,6 @@
 from noshow import *
 sina = SimScena()
-sina.C = 110.0
+sina.C = 120.0
 sina.m = 4
 sina.beta = 0.1
 sina.p = (0.1,0.1)

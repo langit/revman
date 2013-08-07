@@ -23,7 +23,6 @@ def phi(x, mu=0.0, sigma=1.0):
 
     return 0.5*(1.0 + sign*y)
 
-
 from ltqnorm import ltqnorm as phinv
 if __name__ == "__main__":
 	print 0, phi(0), phinv(phi(0))

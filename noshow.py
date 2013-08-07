@@ -553,7 +553,7 @@ class SimScena:
         return me.C/qq
 
     #below we compute EMSR policy with OB
-    def invUnifS(me, p, i): #inverse Survival
+    def invSurvival(me, p, i): #inverse Survival
         return me.L[i-1]*p + me.U[i-1]*(1-p)
     
     def policyEMSR(me, vc): #virture capacity
@@ -562,7 +562,7 @@ class SimScena:
         for j in range(1, me.m+1):
             x[j] = vc
             for i in range(1, j):
-                sij  = me.invUnifS(f[j]/f[i],i)
+                sij  = me.invSurvival(f[j]/f[i],i)
                 x[j] -= sij
             if x[j] <= 0.0:
                 x[j] = 0.0
@@ -655,7 +655,7 @@ class SimScena:
                 b[j] -= 1
                 if b[j] < 1: break 
             if b[j] < 1: break
-            #update V: Vj(y) = E[max_{u<=Dj} f_j u + V_{j-1}(y+u)]
+            #update V: V_j(y) = E[max_{u<=D_j} f_j u + V_{j-1}(y+u)]
             #if V'>0: Vj(y)=E[f_j t+V_{j-1}(y+t)|t=min(Dj,[b_j-y]+)]
             #So we have the following cases (exclusively):
             #if y >= b_j: t=0, Vj(y) = V_{j-1}(y)
@@ -667,8 +667,7 @@ class SimScena:
             #if y+U_j < b_j: Vj(y) = Vj(y+1) +
             #  [V_{j-1}(y+L_j)-V_{j-1}(y+1+U_j)]/(U_j-L_j+1)
             W = [V[y] for y in range(len(V))] #case y >= b_j
-            y = b[j] - 1
-            while y>=0:
+            for y in range(b[j] - 1, -1, -1):
                 if y >= b[j] - L[j]: 
                     W[y] = W[y+1] + f[j]
                 elif y >= b[j] - U[j]: 
@@ -677,12 +676,11 @@ class SimScena:
                         (V[y+ll]-V[b[j]])/K
                 else:
                     W[y] = W[y+1] + (V[y+ll]-V[y+1+uu])/K
-                y = y - 1
             V = W
+        print "StaticDP:", b
         for i in range(1, me.m):
             b[i] = b[i]-b[i+1]
         return b
-
 
 #this class is used for msom paper ex7: problems got the
 #wrong information about noshow: always assume binomial

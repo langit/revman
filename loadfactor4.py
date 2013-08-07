@@ -26,6 +26,7 @@ def scenas(scen, ps):
 		#newscen.L = tuple(i*p for i in scen.L)
 		#newscen.U = tuple(i*p for i in scen.U)
 		newscen.nid = newscen.C = C
+		newscen.uset = 0.5
 		print "## Scenario LOAD Factor:", newscen.demandFactor()
 		yield newscen
 
@@ -36,6 +37,7 @@ gld = [s for s in scenas(sina, range(80,161,10))]
 nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'loadfact4'
 xlab = 'total number of seats'
+nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle))
 nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))
-nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
+#nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
 if DISP is None: pylab.show()
