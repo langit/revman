@@ -4,6 +4,7 @@ from copy import *
 from random import * 
 import newvc
 import pickle
+from normalcdf import phinv, phi
 
 class NestedPolicy:
     def __init__(me, x, prob):
@@ -681,6 +682,105 @@ class SimScena:
         for i in range(1, me.m):
             b[i] = b[i]-b[i+1]
         return b
+
+class NormSrc(UniformSource):
+    def __init__(me, scen):
+        me.m = len(scen.U)
+        me.p = scen.p
+        me.mu = scen.mu
+        me.sigma = scen.sigma
+
+    def nextProfile(me, cor):
+        assert not cor, "unable to process correlated demand."
+        d=[int(vnorm(me.mu[i], me.sigma[i])) for i in range(me.m)]
+        return [max(0,di) for di in d]
+
+#this class is for ejor paper, indep. normal demand distr.
+class NormalScena(SimScena):
+    '''converts an uniform demand distr. scen into normal demand'''
+    def __init__(me, sina):
+        me.L = sina.L
+        me.U = sina.U
+        me.C = sina.C
+        me.m = sina.m
+        me.p = sina.p
+        me.f = sina.f
+        me.beta = sina.beta
+        me.V = sina.V
+        me.mu = tuple((l+u)/2. for l,u in zip(me.L,me.U))
+        me.sigma = tuple((u-l)/12**.5 for l,u in zip(me.L,me.U))
+
+    def makeSource(me): #override
+        return NormSrc(me)
+
+    #below we overide this to have correct EMSR
+    def invSurvival(me, p, i): #inverse Survival
+        return me.mu[i-1] + me.sigma[i-1]*phinv(1-p)
+
+    #Below compute the exact static policy for LBH arrivals
+    #assuming demand is discrete normal.
+    #noshow rate is also uniform (continous).
+    #or noshow is binomial with uniform probability of noshow
+    #In both cases, the termianl cost is CONVEX
+    def policyStaticDP(me): #ref. van Ryzin RM book pg 157
+        #first test for the uppper bound of overbooking.
+        V = 1.0 - sum(me.p)/2.0
+        f,mu,sigma = (0,)+me.f,(0,)+me.mu,(0,)+me.sigma
+        if V*me.V <= f[1]:
+            raise "static model violates COR! %f"%(f[1]/V)
+        V = None #variables for Bellman equaiton
+        B = 2+int(me.C / (1.0 - me.p[1])) #?
+        if config.BINO: #if binomial distribution
+            pf = penub(me.p,me.V,me.C,B,penadj(0,0,0,0))
+            V = [-pf.g(i) for i in range(B)]
+            #print V[int(me.C):]
+        else:
+            V = [0.0 for i in range(B)]
+            V[B-1]=-me.V*((1.0-sum(me.p)/2.0)*(B-1)-me.C)
+            #pf = penun(me.p, me.V, me.C,penadj(0,0,0,0))
+            for i in range(1+int(me.C/(1.0-me.p[0])), B-1):
+                V[i] = (i - i * me.p[0] - me.C)
+                V[i] *= - V[i] * me.V
+                V[i] /= float(2*i) * (me.p[1] - me.p[0])
+                #print V[i] + pf.g(i), #pf for debug
+
+        b = [0 for i in range(me.m+1)] #policy
+        b[0] = len(V) - 1
+        for j in range(1,me.m+1):
+            #print "V_%i:"%j, V #debugging info
+            for lv in range(b[j-1], 0, -1): 
+                if f[j] > V[lv-1] - V[lv]: b[j]=lv; break
+            else: b[j]=0; break
+            #update V: Vj(y) = E[max_{u<=Dj} f_j u + V_{j-1}(y+u)]
+			# if y>=b_j: V_{j-1}(y) - V_{j-1}(y-1) < f_j: 
+            #   argmax_{u<=Dj} f_j u + V_{j-1}(y+u) = 0
+            # therefore, V_j(y) = V_{j-1}(y)
+			# if y<b_j: V_{j-1}(y) - V_{j-1}(y-1)>f_j: 
+			#   argmax_{u<=Dj} f_j u + V_{j-1}(y+u) = min(Dj,b_j-y)
+			#   if D_j >= b_j - y: u* = b_j-y
+			#     f_j (b_j-y) + V_{j-1}(b_j)
+			#   if D_j < b_j - y: u* = Dj
+			#     f_j D_j + V_{j-1}(b_j+Dj)
+			# therefore, V_j(y) = P{Dj>=b_j-y} 
+			#                     (f_j (b_j-y) + V_{j-1}(b_j)+
+			#      sum{P{D_j=d} [f_j d + V_{j-1}(y+d)]; d<b_j-y}
+            def tox(d): return float(d-mu[j])/sigma[j]
+            W = V[:] #case y >= b_j are taken care of
+            for y in range(b[j]):
+                t  = b[j] - y 
+                pt = [phi(tox(d)) for d in range(t)]
+                pt = [pt[d]-pt[d-1] if d else pt[d] 
+								for d in range(t)]
+                lt = sum(pt[d]*(f[j]*d + V[y+d]) 
+								for d in range(t))
+                ht = (1. - phi(tox(t)))*(f[j]*t + V[y+t]) 
+                W[y] = ht + lt
+            V = W
+        assert b[1] < b[0], "B is not big enough!"
+        for i in range(1, me.m):
+            b[i] = b[i] - b[i+1]
+        return b
+
 
 #this class is used for msom paper ex7: problems got the
 #wrong information about noshow: always assume binomial
