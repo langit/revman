@@ -35,6 +35,8 @@ def scenas(scen, ps):
 		yield newscen
 
 from ORinstance3 import sina
+#this line converts into normal demand distr
+sina = nosh.NormalScena(sina)
 
 pickle = 'cov3.pkl'
 gld = [s for s in scenas(sina, (i/5. for i in range(1,7)))]

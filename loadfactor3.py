@@ -26,6 +26,7 @@ def scenas(scen, ps):
 		yield newscen
 
 from ORinstance3 import sina
+sina = nosh.NormalScena(sina)
 
 pickle = 'loadfactor3.pkl'
 gld = [s for s in scenas(sina, range(100, 201, 10))]

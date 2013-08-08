@@ -2,6 +2,8 @@ import math
 from pylab import *
 from copy import *
 from random import * 
+vnorm = normalvariate
+
 import newvc
 import pickle
 from normalcdf import phinv, phi
@@ -446,6 +448,19 @@ class SimScena:
         me.ddr = defDDR
         me.pdr = defPDR
 
+    def endow_unit(me):
+		return sum(f*(u+l)/2. for f,u,l 
+					in zip(me.f, me.U, me.L))
+
+    def hybridBounds(me):
+        us = me.uset if hasattr(me,'uset') else config.uset 
+        mean = [(x+y)/2. for x,y in zip(me.U, me.L)]
+        U = (0,)+tuple(int(m+(x-m)*us+.9) 
+						for m,x in zip(mean, me.U))
+        L = (0,)+tuple(max(0, int(m+(x-m)*us))
+						for m,x in zip(mean, me.L))
+        return L,U
+
     def initSim(me): pass
 
     def modifyParam(me, p): pass
@@ -478,7 +493,7 @@ class SimScena:
             ff += u[i] * me.f[i]
         return ff/sum(u)
 
-    def newsVC(me, rho=None, vbs = False):
+    def newsVC(me, rho=None, vbs = False): #seems depricated
         C = b = int(me.C)
         B = int( me.C/(1.0-me.p[1]) )+1
         if rho == None: rho = 1. - sum(me.p)/2.0
@@ -692,23 +707,39 @@ class NormSrc(UniformSource):
 
     def nextProfile(me, cor):
         assert not cor, "unable to process correlated demand."
-        d=[int(vnorm(me.mu[i], me.sigma[i])) for i in range(me.m)]
+        d=[int(vnorm(me.mu[i], me.sigma[i])+.99) 
+						for i in range(me.m)]
         return [max(0,di) for di in d]
 
 #this class is for ejor paper, indep. normal demand distr.
 class NormalScena(SimScena):
     '''converts an uniform demand distr. scen into normal demand'''
     def __init__(me, sina):
-        me.L = sina.L
-        me.U = sina.U
         me.C = sina.C
         me.m = sina.m
         me.p = sina.p
         me.f = sina.f
         me.beta = sina.beta
         me.V = sina.V
+        me.L = sina.L
+        me.U = sina.U
         me.mu = tuple((l+u)/2. for l,u in zip(me.L,me.U))
         me.sigma = tuple((u-l)/12**.5 for l,u in zip(me.L,me.U))
+        print me.mu; print me.sigma
+
+    def endow_unit(me):
+		return sum(f*mu for f,mu in zip(me.f, me.mu))
+
+    def hybridBounds(me, mult=None):
+        us = mult if mult else \
+			me.uset if hasattr(me,'uset')*2. else config.uset 
+        U = tuple(int(m+sig*us+.9) 
+				for m,sig in zip(me.mu, me.sigma))
+        L = tuple(int(m-sig*us)
+				for m,sig in zip(me.mu, me.sigma))
+        assert all(l>=0. for l in L), "bad uset!"
+        if mult: me.L, me.U = L, U
+        return None if mult else ((0,)+L, (0,)+U) 
 
     def makeSource(me): #override
         return NormSrc(me)
@@ -2247,39 +2278,33 @@ def testPenultyFunc():
 #testPenultyFunc()
 
 class noshexp:
-    def __init__(me, info, tadj):
-        assert isinstance(info, SimScena)
+    def __init__(me, sena, tadj):
+        assert isinstance(sena, SimScena)
         me.scen = [] 
         me.extr = []
 
-        us = info.uset if hasattr(info,'uset') else config.uset 
-        mean = [(x+y)/2. for x,y in zip(info.U, info.L)]
-        me.U = (0,)+tuple(int(m+(x-m)*us+.9) 
-						for m,x in zip(mean, info.U))
-        me.L = (0,)+tuple(max(0, int(m+(x-m)*us))
-						for m,x in zip(mean, info.L))
+        me.L, me.U = sena.hybridBounds()
 
         if config.BINO:
             B = 1+int(sum(me.U))
-            if B < info.C:
-               B = info.C
+            if B < sena.C:
+               B = sena.C
                print "Warning: sum(U) < C!"
-            me.ff = penub(info.p, info.V, info.C, B, 
+            me.ff = penub(sena.p, sena.V, sena.C, B, 
                 penadj(tadj,config.smul, config.svl, config.svlp))
         else:
-            me.ff = penun(info.p, info.V, info.C,
+            me.ff = penun(sena.p, sena.V, sena.C,
                 penadj(tadj,config.smul, config.svl, config.svlp))
-        h = sum(info.p)/2.0
-        h = 1.0 - h + info.beta*h
-        me.f = (info.V*(1-info.p[0]),) + info.f #fares
+        h = sum(sena.p)/2.0
+        h = 1.0 - h + sena.beta*h
+        me.f = (sena.V*(1-sena.p[0]),) + sena.f #fares
         me.f = [h*fi for fi in me.f]
-        me.m = info.m
-        me.C = info.C
-        me.baseK = config.basemult*sum(f*(u+l)/2. 
-				for f,u,l in zip(info.f, info.U, info.L))
+        me.m = sena.m
+        me.C = sena.C
+        me.endow = config.basemult*sena.endow_unit()
 
         #[[k, Dk, R*], ]
-        for k in range(info.m,0,-1):
+        for k in range(sena.m,0,-1):
             R, T = me.Roff(k, int(me.L[k]))
             me.extr.append((k, int(me.L[k]), R, T))
             for d in range(int(me.L[k]), int(me.U[k])):
@@ -2326,7 +2351,7 @@ class noshexp:
         scen = me.extr if easy else me.scen
         for s in scen:
             if s[2] <= 0: continue
-            gs = (me.baseK+me.Ron(s[0],s[1],x))/(me.baseK+s[2])
+            gs = (me.endow+me.Ron(s[0],s[1],x))/(me.endow+s[2])
             if gs < gg: gg, bs = gs, s
         if verbose: print "Gamma:", gg, "Bind Scen:", bs
         return gg

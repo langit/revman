@@ -5,7 +5,7 @@ sina = SimScena()
 sina.L = (20., 40., 25.)
 sina.U = (64.,150., 70.)
 #ORinstHow.py: 
-sina.L, sina.U = (8., 94., 0.),(30., 170., 43.)
+#sina.L, sina.U = (8., 94., 0.),(30., 170., 43.)
 sina.C = 120.0
 sina.m = 3
 sina.beta = 0.1

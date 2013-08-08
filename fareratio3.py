@@ -4,6 +4,7 @@ from copy import copy
 import pylab
 
 from ORinstance3 import sina
+sina = nosh.NormalScena(sina)
 
 nosh.config.LBH=True
 nosh.config.BINO=True
