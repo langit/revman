@@ -34,7 +34,7 @@ from ORinstance4 import sina
 sina = nosh.NormalScena(sina)
 
 pickle = 'loadfact4.pkl'
-gld = [s for s in scenas(sina, range(80,161,10))]
+gld = [s for s in scenas(sina, range(60,141,10))]
 nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'loadfact4'
 xlab = 'total number of seats'

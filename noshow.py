@@ -791,7 +791,7 @@ class NormalScena(SimScena):
 			#   if D_j >= b_j - y: u* = b_j-y
 			#     f_j (b_j-y) + V_{j-1}(b_j)
 			#   if D_j < b_j - y: u* = Dj
-			#     f_j D_j + V_{j-1}(b_j+Dj)
+			#     f_j D_j + V_{j-1}(y+Dj)
 			# therefore, V_j(y) = P{Dj>=b_j-y} 
 			#                     (f_j (b_j-y) + V_{j-1}(b_j)+
 			#      sum{P{D_j=d} [f_j d + V_{j-1}(y+d)]; d<b_j-y}
@@ -804,7 +804,7 @@ class NormalScena(SimScena):
 								for d in range(t)]
                 lt = sum(pt[d]*(f[j]*d + V[y+d]) 
 								for d in range(t))
-                ht = (1. - phi(tox(t)))*(f[j]*t + V[y+t]) 
+                ht = (1. - phi(tox(t-1.)))*(f[j]*t + V[y+t]) 
                 W[y] = ht + lt
             V = W
         assert b[1] < b[0], "B is not big enough!"
