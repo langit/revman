@@ -732,7 +732,7 @@ class NormalScena(SimScena):
 
     def hybridBounds(me, mult=None):
         us = mult if mult else \
-			me.uset if hasattr(me,'uset')*2. else config.uset 
+			me.uset if hasattr(me,'uset') else config.uset*2.
         U = tuple(int(m+sig*us+.9) 
 				for m,sig in zip(me.mu, me.sigma))
         L = tuple(int(m-sig*us)
@@ -760,7 +760,8 @@ class NormalScena(SimScena):
         if V*me.V <= f[1]:
             raise "static model violates COR! %f"%(f[1]/V)
         V = None #variables for Bellman equaiton
-        B = 2+int(me.C / (1.0 - me.p[1])) #?
+        std = (1.0-me.p[0])*me.p[1] #Bernuli
+        B = 2+int(me.C / (1.0 - me.p[1]) * (1+2.*std)) 
         if config.BINO: #if binomial distribution
             pf = penub(me.p,me.V,me.C,B,penadj(0,0,0,0))
             V = [-pf.g(i) for i in range(B)]
@@ -2284,6 +2285,7 @@ class noshexp:
         me.extr = []
 
         me.L, me.U = sena.hybridBounds()
+        print me.L, me.U 
 
         if config.BINO:
             B = 1+int(sum(me.U))

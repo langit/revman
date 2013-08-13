@@ -38,11 +38,10 @@ def scenas(scen, ps):
 		yield newscen
 
 from ORinstance3 import sina
-#this line converts into normal demand distr
 
 pickle = 'cov3.pkl'
 gld = [s for s in scenas(sina, (i/5. for i in range(1,7)))]
-#nosh.enuSim(gld, 10000, pickle, mymeth)
+nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'ORcov3'
 xlab = 'demand volatility (g)'
 nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle)) 
