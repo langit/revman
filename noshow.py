@@ -1492,7 +1492,7 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
     ars = [ars[pon] for pon in custom]
     crs = [crs[pon] for pon in custom]
     key = [None for pon in pls] #key performance
-    lvl = [None for p in pls]
+    lvl = [None for pon in pls]
     los = [None for pon in pls]
     his = [None for pon in pls]
     vrev = [None for pon in pls]
@@ -1501,16 +1501,9 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
     vhis = [None for pon in pls]
     vemp = [None for pon in pls]
     vbum = [None for pon in pls]
-
-    seq = src.nextSeq(config.LBH, COR)
-    nop = src.nextRate(ptype) 
-    if config.BINO: binoSeq(seq, nop)
-    for k in range(len(pls)):
-        obsv = pls[k].execute(seq, nop)
-        los[k] = his[k] = obsv[0]
-
-    ras = [[0.0 for i in range(reps)] 
+    ras = [[None for i in range(reps)] 
                 for k in range(len(pls))]
+
     for i in range(reps):
         seq = src.nextSeq(config.LBH, COR)
         nop = src.nextRate(ptype) 
@@ -1518,8 +1511,8 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
 
         for k in range(len(pls)):
             ras[k][i] =obsv= pls[k].execute(seq, nop)
-            if obsv[0] < los[k]: los[k] = obsv[0]
-            if obsv[0] > his[k]: his[k] = obsv[0]
+            if i==0 or obsv[0] < los[k]: los[k] = obsv[0]
+            if i==0 or obsv[0] > his[k]: his[k] = obsv[0]
 
     def mustd(data, std4mu=False): #mu and std
         no = float(len(data))
@@ -1551,15 +1544,16 @@ def scenaSim(scen, reps, custom, verbo=True, fscen=None):
             return delta*sqrt((1-rho)*rho*(reps-1))
 
         def lohi_percentiles(revs):
-            return revs[ipercent], revs[reps-ipercent]
+            return revs[ipercent], revs[reps-1-ipercent]
 
         def lohistd_boot(revs):
-            return revs[ipercent], revs[reps-ipercent],\
+            return revs[ipercent], revs[reps-1-ipercent],\
 							mustd(revs, True)[1]
 
         remp = 100.0/scen.C 
         for k in range(len(pls)):
             revenues = sorted(r[0] for r in ras[k])
+            #assert len(revenues)==reps, "impossible!"
             vlos[k], vhis[k], vstd[k] = bootstrap(
 				revenues, lohistd_boot, 500)
             los[k], his[k] = lohi_percentiles(revenues)
@@ -2002,8 +1996,20 @@ def drawFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
         savefig(DISP+'8.eps')
         print "File saved: %s8.eps"%DISP
 
+def prinTable(title, custom, vvv, means, confs):
+	print title
+	print "Method &\multicolumn{2}{c|}{",
+	print '} &\multicolumn{2}{c|}{'.join(str(v) for v in vvv), '}\\\\'
+	for lbl, mean, conf in zip(custom, means, confs):
+		row = [str(lbl)]
+		for m, v in zip(mean, conf):
+			row.append( "%.0f"%m )
+			row.append( "%.0f"%v[1] )
+		print ' & '.join(row), '\\\\'
+
 def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
-		miner, maxer, arsmt, crsmt, conf={}, legloc=(0,0,0)):
+		miner, maxer, arsmt, crsmt, conf={}, legloc=(0,0,0), 
+        no_percentiles=False):
     rcParams.update({'axes.labelsize': 6,
              'text.fontsize': 5,
              'legend.fontsize': 5,
@@ -2016,9 +2022,11 @@ def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
 			 'lines.markeredgewidth':0.2,
 			 #'lines.markerfacecolor':'None',
 			 'lines.markersize':4})
+    epsilon = 1e-5
     nm = len(custom)
-    figure(figsize=(6,4))
-    fig = subplot(221)
+    figure(figsize=(6, 2.5 if no_percentiles else 5))
+    fig = subplot(121 if no_percentiles else 221)
+    xlim(min(vvv)-epsilon, max(vvv)+epsilon)
     for i in range(nm):
         plot(vvv, relat[i], style[i], 
 				markerfacecolor='None', label=custom[i])
@@ -2029,12 +2037,16 @@ def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     adjust_style(fig, False)
 
     legend(loc=legloc[0], numpoints = 1)#, markerscale = 0.8)
-    xlabel(xlab)
-    if bAbsolute: ylabel('Average net revenues')
-    else: ylabel('Relative Performance to EMSR/CR (%)')
+    if no_percentiles: xlabel(xlab)
+
+    header = 'Average net revenues' if bAbsolute\
+        else 'Relative Performance to EMSR/CR (%)'
+    ylabel(header)
+    prinTable(header, custom, vvv, relat, cir)
     #title('Relative Performance to EMSR/CR')
 
-    fig = subplot(223)
+    fig = subplot(122 if no_percentiles else 223)
+    xlim(min(vvv)-epsilon, max(vvv)+epsilon)
     cir = conf.get("vstd", None)
     for i in range(nm):
         stds = [x for x,y in cir[i]]
@@ -2048,36 +2060,40 @@ def drawSubFigs(DISP, xlab, custom, vvv, relat, waste, bumps,
     xlabel(xlab)
     ylabel('Standard deviation of mean revenue')
 
-    fig = subplot(224)
-    for i in range(nm):
-        plot(vvv, miner[i], style[i], #label=custom[i])
+    if not no_percentiles:
+       fig = subplot(224)
+       xlim(min(vvv)-epsilon, max(vvv)+epsilon)
+       for i in range(nm):
+           plot(vvv, miner[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
-	# draw confidence intervals as circles here
-    cir = conf.get("vlos", None)
-    for i in range(nm):
-        if cir: drawCI(fig, vvv, cir[i], style[i])
-    adjust_style(fig, False)
-    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
-    xlabel(xlab)
-    if config.percentile: ylabel(
+	   # draw confidence intervals as circles here
+       cir = conf.get("vlos", None)
+       for i in range(nm):
+           if cir: drawCI(fig, vvv, cir[i], style[i])
+       adjust_style(fig, False)
+       legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
+       xlabel(xlab)
+       if config.percentile: ylabel(
 			'Observed %ith percentile of revenue'%config.percentile)
-    else: ylabel('Minimal Observed Revenue')
+       else: ylabel('Minimal Observed Revenue')
 
-    fig = subplot(222)
-    for i in range(nm):
-        plot(vvv, maxer[i], style[i], #label=custom[i])
+       fig = subplot(222)
+       xlim(min(vvv)-epsilon, max(vvv)+epsilon)
+       for i in range(nm):
+           plot(vvv, maxer[i], style[i], #label=custom[i])
 				markerfacecolor='None', label=custom[i])
-	# draw confidence intervals as circles here
-    cir = conf.get("vhis", None)
-    for i in range(nm):
-        if cir: drawCI(fig, vvv, cir[i], style[i])
-    adjust_style(fig, False)
-    legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
-    xlabel(xlab)
-    if config.percentile: ylabel(
+	   # draw confidence intervals as circles here
+       cir = conf.get("vhis", None)
+       for i in range(nm):
+           if cir: drawCI(fig, vvv, cir[i], style[i])
+       adjust_style(fig, False)
+       legend(loc=legloc[2], numpoints = 1)#, markerscale = 0.9)
+       #xlabel(xlab)
+       if config.percentile: ylabel(
 			'Observed %ith percentile of revenue'%
 			(100-config.percentile))
-    else: ylabel('Maximal Observed Revenue')
+       else: ylabel('Maximal Observed Revenue')
+
     tight_layout()
     if DISP!=None: 
         savefig(DISP+'0.eps')

@@ -30,11 +30,11 @@ import sys
 if 'normal' == sys.argv[-1]: sina = nosh.NormalScena(sina)
 
 pickle = 'loadfactor3.pkl'
-gld = [s for s in scenas(sina, range(100, 201, 10))]
-nosh.enuSim(gld, 10000, pickle, mymeth)
+gld = [s for s in scenas(sina, range(110, 191, 20))]
+#nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'ORloadfactor3'
 xlab = 'total number of seats'
-nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle))
-nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))
+nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle),no_percentiles=True)
+#nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))
 #nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
 if DISP is None: pylab.show()

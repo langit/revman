@@ -30,12 +30,11 @@ def scenas(scen, ratios):
 		yield newscen
 
 pickle = 'fareratio3.pkl'
-gld = [s for s in scenas(sina, ((i/10.-.5)*.99999+.5 
-		for i in range(1,10)))]
-nosh.enuSim(gld, 10000, pickle, mymeth)
+gld = [s for s in scenas(sina, (i/10. for i in range(3,8)))]
+#nosh.enuSim(gld, 10000, pickle, mymeth)
 DISP = 'ORfareratio3'
 xlab = 'fare ratio'
-nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle))
-nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))
-nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
+nosh.drawSubFigs(DISP, xlab, *nosh.loadResults(pickle), no_percentiles=True)
+#nosh.drawFigs(DISP, xlab, *nosh.loadResults(pickle))
+#nosh.drawPolicies(DISP,xlab,*nosh.loadPolicies(pickle))
 if DISP is None: pylab.show()
